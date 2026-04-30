@@ -38,10 +38,10 @@ You fix one bug. bug-echo identifies the pattern from your fix, scans the rest o
 
 ```bash
 git clone https://github.com/Terryc21/bug-echo.git
-cp -r bug-echo ~/.claude/skills/
+cp -r bug-echo/skills/bug-echo ~/.claude/skills/
 
 # Or for a single project
-cp -r bug-echo /path/to/your/project/.claude/skills/
+cp -r bug-echo/skills/bug-echo /path/to/your/project/.claude/skills/
 ```
 
 Invoke with `/skill bug-echo` or natural-language triggers like *"scan for similar bugs"*, *"echo this fix"*, *"after-fix scan"*.

@@ -1,5 +1,11 @@
 # bug-echo
 
+![Visitors](https://komarev.com/ghpvc/?username=Terryc21&repo=bug-echo&label=visitors&color=blue) ![GitHub stars](https://img.shields.io/github/stars/Terryc21/bug-echo?style=flat) ![GitHub forks](https://img.shields.io/github/forks/Terryc21/bug-echo?style=flat)
+
+<a href="https://buymeacoffee.com/stuffolio">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="150">
+</a>
+
 A Claude Code skill: after you fix a bug, find other instances of the same pattern in the codebase.
 
 ## What it does
@@ -52,6 +58,12 @@ Reports live in `.agents/research/`. The Markdown report is human-readable; the 
 ## Status
 
 Current version: 1.0.0. Built primarily for Swift/SwiftUI codebases; the methodology is language-agnostic but the catalog and AST queries are Swift-focused.
+
+## Other Claude Code skills I have built
+
+- [code-smarter](https://github.com/Terryc21/code-smarter) -- prompter rewrites your prompt for clarity before Claude acts; tutorial-creator generates annotated code-reading lessons from your own codebase
+- [workflow-audit](https://github.com/Terryc21/workflow-audit) -- 5-layer audit of SwiftUI user workflows; finds dead ends, broken promises, and missing data wiring
+- [radar-suite](https://github.com/Terryc21/radar-suite) -- 6-skill audit suite for iOS/macOS Swift codebases. Behavioral, not grep-based: traces data through real user flows and reasons about runtime behavior instead of matching surface patterns, so it catches bugs that pattern matchers miss
 
 ## License
 

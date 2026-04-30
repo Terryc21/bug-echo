@@ -1,10 +1,10 @@
 ---
 name: bug-echo
-description: 'After fixing a bug, find and rate other instances of the same pattern in the codebase. Three modes: described, inferred from recent fix (with self-validation), or selected from a built-in catalog. Triggers: "run bug-echo", "echo this fix", "scan for similar bugs", "find other instances", "after-fix scan".'
+description: 'After fixing a bug, find and rate other instances of the same pattern in the codebase. Two modes: described, or inferred from a recent fix with self-validation. Triggers: "run bug-echo", "echo this fix", "scan for similar bugs", "find other instances", "after-fix scan".'
 version: 1.0.0
 author: Terry Nyberg, Coffee & Code LLC
 license: Apache-2.0
-allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Task]
+allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Agent]
 metadata:
   tier: execution
   category: debugging
@@ -12,64 +12,61 @@ metadata:
 
 # bug-echo
 
-> **Quick Ref:** After a bug fix, identify the pattern, scan the codebase using AST-aware matching, classify findings, and produce a rated report.
-> Output: `.agents/research/YYYY-MM-DD-bug-echo-<slug>.md` + `.json` sidecar.
+> **Quick Ref:** After a bug fix, identify the pattern, scan the codebase, classify findings, and produce a rated report.
+> Output: `.agents/research/YYYY-MM-DD-bug-echo-<slug>.md`.
 
 **YOU MUST EXECUTE THIS WORKFLOW. Do not just describe it.**
 
-**Required output:** Every BUG finding MUST include Urgency, Risk of Fixing, Risk of Not Fixing, ROI, Blast Radius, and Fix Effort using the Issue Rating Table format. Findings missing any of the six dimensions are invalid.
+**Required output:** Every BUG finding MUST include Urgency, Risk of Fixing, Risk of Not Fixing, ROI, Blast Radius, and Fix Effort using the 9-column Issue Rating Table format defined in Step 5. Findings missing any of the six dimensions are invalid.
+
+This skill uses Claude's native tools only. No external scripts or pattern catalogs. AST-grep is optional; if it is installed, prefer it for higher precision on Swift, otherwise fall back to regex via the Grep tool.
 
 ---
 
 ## Pre-flight
 
-Run `scripts/preflight.sh`. It checks:
+Before any scanning work, verify the working environment is sane.
 
-- Uncommitted changes in tracked files.
-- Build state — whether the codebase last compiled successfully.
-- Presence of `.agents/research/` for report output (creates if missing).
+1. **Check for uncommitted changes:**
+   - Run `git status --porcelain` via Bash.
+   - If output is non-empty (uncommitted changes exist), use AskUserQuestion to ask: "There are uncommitted changes. Commit before scanning, or proceed anyway?" Options: "Commit first", "Proceed (accept risk)", "Cancel". On "Commit first", show files changed and stop with a request that the user commit. On "Cancel", stop. On "Proceed (accept risk)", log "User accepted risk of uncommitted changes" and continue.
 
-If uncommitted changes exist, ask the user via AskUserQuestion whether to commit before proceeding. If the user declines, log "User accepted risk of uncommitted changes" and continue.
+2. **Check the codebase compiles (best-effort):**
+   - This is a soft check. If `Package.swift`, `xcodeproj`, `Cargo.toml`, `package.json`, or similar build manifest is detected via Glob in the project root, note this. Do NOT actually run a build (too slow, too platform-specific). The user is responsible for ensuring their codebase builds before running bug-echo. If you detect build manifests are missing, mention it but continue.
 
-If the codebase does not compile, **halt** and inform the user. Scanning a broken codebase produces unreliable findings because the parser may be reading syntactically incomplete files. Resume only after the user confirms the codebase compiles, or accepts the risk explicitly.
+3. **Ensure output directory exists:**
+   - If `.agents/research/` does not exist, create it via `mkdir -p .agents/research/` via Bash.
 
 ### Freshness rule
 
-Base all findings on the current source tree only. Do not read prior reports in `.agents/research/`, `scratch/`, or auto-memory caches **during the scan**. Prior reports are read only in Step 5 for recurrence detection — never as a source of findings.
+Base all findings on the current source tree only. Do not read prior reports in `.agents/research/`, `scratch/`, or auto-memory caches as a source of findings. Prior reports are not consulted in v1.0.
 
 ---
 
 ## Step 1: Determine pattern source
 
-Three modes are supported, in priority order:
+Two modes are supported in v1.0:
 
-1. **User-described** — the invoking prompt includes a description of the pattern. Skip to Step 2A.
-2. **Infer from recent fix** — the session has a recent edit (in conversation context or `git log -p -1`). Offer this as the default when available.
-3. **Catalog** — neither of the above. Prompt the user to select from `patterns/*.yaml`.
+1. **User-described:** the invoking prompt includes a description of the pattern. Skip to Step 2A.
+2. **Inferred from recent fix:** the session has a recent edit (in conversation context or from `git log -p -1`). Use AskUserQuestion to confirm. Go to Step 2B.
 
-When more than one mode is available, disambiguate with AskUserQuestion:
+If both are possible, disambiguate with AskUserQuestion:
 
-```json
-[
-  {
-    "question": "How should I identify the pattern?",
-    "header": "Source",
-    "options": [
-      {"label": "Infer from my recent fix", "description": "Analyze the diff and derive the pattern"},
-      {"label": "Pick from catalog", "description": "Choose a common Swift/SwiftUI anti-pattern"},
-      {"label": "I'll describe it", "description": "I'll write out the pattern"},
-      {"label": "Cancel", "description": "Stop"}
-    ],
-    "multiSelect": false
-  }
-]
 ```
+Question (header: "Source"): "How should I identify the pattern?"
+Options:
+- "Infer from my recent fix" (Recommended). Analyze the diff and derive the pattern.
+- "I'll describe it". I'll write out the pattern.
+- "Cancel". Stop.
+```
+
+A planned v1.1 mode (catalog selection from a built-in pattern library) is not yet available.
 
 ---
 
 ## Step 2A: User-described pattern
 
-Summarize the pattern back:
+Summarize the pattern back to the user:
 
 ```markdown
 **Pattern:** [name]
@@ -85,43 +82,56 @@ Confirm with AskUserQuestion (Yes scan now / Refine / Cancel) before proceeding 
 
 ## Step 2B: Infer from recent fix
 
-This is bug-echo's distinctive mode. Run `scripts/infer-pattern-from-diff.sh`:
+This is bug-echo's distinctive mode. Execute these steps directly using Bash and native tools:
 
-1. Identifies the diff source — staged changes, unstaged changes, or `git log -p -1` — whichever is most recent.
-2. Parses the diff into removed lines (anti-pattern) and added lines (correct pattern).
-3. Constructs a candidate AST query (or regex fallback) from the removed code.
-4. **Self-validates** by applying the candidate to the pre-fix version of the file. Returns:
-   - `validated` — the candidate matches the pre-fix file. Proceed.
-   - `ambiguous` — multiple candidate patterns possible. Present top candidates via AskUserQuestion.
-   - `unvalidated` — cannot confirm the pattern matches anything bug-shaped (e.g., the edit was a comment change, rename, or formatting fix). **Fall back to Step 2A or 2C — do not scan with an unvalidated pattern.**
+1. **Identify the diff source.** In priority order:
+   - Staged changes: `git diff --cached` via Bash.
+   - Unstaged changes: `git diff` via Bash.
+   - Most recent commit: `git log -p -1` via Bash.
+   Use the first non-empty result. If all are empty, fall back to Step 2A.
 
-When `validated`, present the inferred pattern using the Step 2A summary format and confirm before scanning.
+2. **Parse the diff.**
+   - Lines starting with `-` (and not `---`) are removed lines (the anti-pattern).
+   - Lines starting with `+` (and not `+++`) are added lines (the correct pattern).
+   - Strip leading whitespace differences when constructing the pattern.
 
-The validation step is non-negotiable. Scanning with an unvalidated pattern produces nonsense findings and erodes user trust in the skill.
+3. **Construct a search pattern from the removed lines.**
+   - Identify the smallest distinctive substring of the removed code that captures the anti-pattern. Avoid matching on comments, formatting, or unrelated changes.
+   - If `which ast-grep` returns a path via Bash, prefer constructing an AST-grep pattern. Otherwise construct a regex compatible with the Grep tool.
+   - Keep the pattern focused. A pattern that matches `try?` would match every optional-try in the codebase; that's not useful. Prefer something like `try?\\s+context\\.fetch` for a try?-on-fetch fix.
 
----
+4. **Self-validate against the pre-fix file.**
+   - Determine the file the fix was applied to (from the diff header `--- a/path/to/file.swift`).
+   - Read the pre-fix version: `git show HEAD~1:path/to/file.swift` via Bash (or HEAD if working tree). Compare against the constructed pattern using Grep.
+   - **If the pattern matches the pre-fix file:** validated. Proceed.
+   - **If the pattern does not match anything:** unvalidated. The constructed pattern doesn't actually find the bug it's supposed to find. Halt and try one of:
+     - Construct a different pattern (broader or narrower).
+     - Fall back to Step 2A and ask the user to describe the pattern manually.
+     - Abort with explanation.
+   - **Do not scan with an unvalidated pattern.** Scanning with a bad pattern produces nonsense findings and erodes user trust.
 
-## Step 2C: Catalog selection
+5. **Present the inferred pattern** using the Step 2A summary format and confirm with the user before scanning.
 
-Read `patterns/index.yaml` for available patterns. Present names and one-line descriptions via AskUserQuestion. On selection, load the full definition from `patterns/<name>.yaml`.
-
-See `references/pattern-schema.md` for the YAML schema. Patterns include AST queries, regex fallbacks, false-positive guards, default urgency, and applicable platforms.
+The validation step is non-negotiable. If you cannot construct a pattern that matches the pre-fix file, the inference has failed. Do not proceed with a guess.
 
 ---
 
 ## Step 3: Execute the scan
 
-Run `scripts/run-scan.py` with the validated pattern. The script:
+Run the validated pattern across the codebase.
 
-1. Builds the file glob from pattern + scope (default `**/*.swift`).
-2. Dispatches subagents via the Task tool when the glob exceeds 20 files. Each subagent receives the pattern, its file list, and the classification contract; returns structured findings without polluting the main agent's context.
-3. Aggregates findings into a single list.
+1. **Build the file list:**
+   - Use Glob with the pattern's `search_scope` (default `**/*.swift` for Swift fixes; adjust by language).
+   - For multiplatform Swift codebases, Claude must respect `#if os(...)` and `#if !os(...)` blocks during classification. Code inside an excluded platform branch is not flagged.
 
-For small scans (< 20 files), the main agent performs the scan directly.
+2. **Choose the scan strategy based on file count:**
+   - **Under 50 files:** Scan directly using Grep with the pattern.
+   - **50 to 500 files:** Scan directly. Acceptable performance.
+   - **Over 500 files:** Dispatch sub-agents via the Agent tool. Split files into batches of ~100. Each sub-agent receives the pattern, its file list, and the classification rules from Step 4. Sub-agents return structured findings (matches with file:line context). Aggregate results in the main agent.
 
-### Multiplatform handling
-
-If the pattern's `applies_to_platforms` is restricted, the scanner respects `#if os(...)` and `#if !os(...)` blocks. Code inside an excluded platform branch is **not** flagged. This prevents false positives like flagging macOS-correct code as iOS-buggy.
+3. **AST-grep precision (optional, opt-in):**
+   - If AST-grep is installed and the language is Swift, run AST-grep against the pattern via Bash for higher precision.
+   - If AST-grep is not installed or fails, fall back to regex via Grep. Note in the report which tool produced the matches.
 
 ---
 
@@ -129,13 +139,15 @@ If the pattern's `applies_to_platforms` is restricted, the scanner respects `#if
 
 For each match, regardless of how it was found:
 
-1. **Read the file** — at minimum 20 lines around the match. Multi-platform code may need a wider window to capture surrounding `#if` blocks.
-2. **Check `references/false-positives.md`** for known intentional usages of this pattern.
-3. **Check the pattern's `false_positive_guards`** from its YAML definition.
-4. **Classify** as one of:
-   - **BUG** — matches the anti-pattern, correctness issue confirmed.
-   - **OK** — correct usage, no action needed (e.g., `as!` after a validated `is` check; strong `self` capture in a SwiftUI struct view).
-   - **REVIEW** — context unclear, requires human judgment.
+1. **Read the file** at the match location (Read tool), at minimum 20 lines around the match. Multi-platform code may need a wider window to capture surrounding `#if` blocks.
+
+2. **Check for known intentional usages.**
+   - In v1.0, this is in-context judgment by Claude. Common intentional uses (e.g., `try?` in test code where failure is acceptable, force-unwrap of an IBOutlet) are classified as OK. A future v1.1 may add a `known-intentional.yaml` file the user can populate.
+
+3. **Classify** as one of:
+   - **BUG:** matches the anti-pattern, correctness issue confirmed in this context.
+   - **OK:** correct usage, no action needed (e.g., `as!` after a validated `is` check; strong `self` capture in a SwiftUI struct view).
+   - **REVIEW:** context unclear, requires human judgment.
 
 Classify each match individually. Do not batch-judge a directory or file.
 
@@ -143,59 +155,114 @@ Classify each match individually. Do not batch-judge a directory or file.
 
 ## Step 5: Generate report
 
-Run `scripts/render-report.py` to produce both outputs:
+Write the report directly to `.agents/research/YYYY-MM-DD-bug-echo-<slug>.md` using the Write tool. The slug is a short kebab-case description of the pattern.
 
-- `.agents/research/YYYY-MM-DD-bug-echo-<slug>.md` — human-readable, includes the Issue Rating Table.
-- `.agents/research/YYYY-MM-DD-bug-echo-<slug>.json` — machine-readable sidecar for chaining with downstream tools (e.g., `safe-refactor` consuming bug-echo findings).
+### Report format
 
-See `references/report-format.md` for the full report template, including the Issue Rating Table column conventions, color coding, and the Status column for re-display after fixes.
+```markdown
+# bug-echo Report: [Pattern Name]
 
-### Prior-report awareness
+**Date:** YYYY-MM-DD
+**Pattern source:** [user-described | inferred from fix]
+**Scan tool:** [ast-grep | regex]
+**Files scanned:** [N]
+**Pattern validated against pre-fix file:** [yes | n/a for user-described]
 
-After writing the new report, `scripts/check-recurrence.py` compares against prior bug-echo reports in `.agents/research/`. If the same pattern appears in 3 of the last 4 scans, append a **Recurrence Warning** section recommending an architectural fix or custom SwiftLint rule rather than another point fix. Recurring patterns are a signal that point fixes are not addressing the root cause.
+## Pattern
+
+**Anti-pattern:** [description]
+**Correct pattern:** [description]
+**Search regex:** `[pattern]` (or `ast-grep query: ...`)
+
+## Summary
+
+- BUG findings: [N]
+- OK findings: [N]
+- REVIEW findings: [N]
+
+## BUG Findings
+
+### Issue Rating Table
+
+| # | Finding | Urgency | Risk: Fix | Risk: No Fix | ROI | Blast Radius | Fix Effort | Status |
+|---|---|---|---|---|---|---|---|---|
+| 1 | [short description] | [🔴 CRITICAL / 🟡 HIGH / 🟢 MEDIUM / ⚪ LOW] | [⚪ Low / 🟡 High / 🔴 Critical] | [⚪ Low / 🟢 Medium / 🟡 High / 🔴 Critical] | [🟠 Excellent / 🟢 Good / 🟡 Marginal / 🔴 Poor] | [⚪ 1 file / 🟢 N files / 🟡 N+ files] | [Trivial / Small / Medium / Large] | Open |
+
+The Status column is `Open` on first display. After fixes are applied, the column updates to `Fixed`, `Deferred`, or `Skipped`.
+
+### Detailed findings
+
+For each BUG finding:
+
+```
+**[N]. [short description]**
+
+`path/to/file.swift:[line]`
+
+[code snippet, 5-10 lines around the match]
+
+**Why this is a bug:** [1-2 sentences]
+**Suggested fix:** [1-2 sentences]
+```
+
+## OK Findings (intentional, no action needed)
+
+For each OK match, one line:
+- `path/to/file.swift:[line]` - [reason it's OK]
+
+## REVIEW Findings (need human judgment)
+
+For each REVIEW match:
+- `path/to/file.swift:[line]` - [why context is unclear]
+```
+
+The report is human-readable and self-contained. A future v1.1 may add a JSON sidecar for downstream skill chaining (e.g., feeding findings into `safe-refactor`).
 
 ---
 
 ## Step 6: Follow-up
 
-Offer guided fixes via AskUserQuestion:
+After the report is written, offer guided fixes via AskUserQuestion:
 
-```json
-[
-  {
-    "question": "How would you like to proceed?",
-    "header": "Next",
-    "options": [
-      {"label": "Fix all BUG findings", "description": "Walk through each finding; apply fixes with approval"},
-      {"label": "Fix selected", "description": "Choose which findings to fix"},
-      {"label": "Report only", "description": "I'll handle fixes manually"}
-    ],
-    "multiSelect": false
-  }
-]
+```
+Question (header: "Next"): "How would you like to proceed?"
+Options:
+- "Fix all BUG findings". Walk through each finding; apply fixes with approval.
+- "Fix selected". Choose which findings to fix.
+- "Report only". I'll handle fixes manually.
 ```
 
-For guided fixes: present the BUG finding, show current code, propose the fix, apply **only** after explicit user approval. Update the JSON sidecar's Status field for each finding (Open → Fixed / Skipped / Deferred). The Status column is included in re-displays of the rating table after fixes are applied.
+**For guided fixes:**
+1. Present the BUG finding with file:line, code snippet, and suggested fix.
+2. Show the proposed Edit (old_string and new_string).
+3. Ask for explicit approval before applying.
+4. Apply via the Edit tool only after the user confirms.
+5. Update the report's Issue Rating Table to mark Status as `Fixed`, `Skipped`, or `Deferred` for each finding processed.
+
+Re-display the rating table at the end of the fix session with all Status columns populated.
 
 ---
 
 ## Troubleshooting
 
 | Problem | Solution |
-|---------|----------|
-| `infer-pattern-from-diff.sh` returns `unvalidated` | The recent edit may not be a bug fix (refactor, comment change, formatting). Fall back to Step 2A or 2C. |
-| Too many matches | Narrow the glob via `scope` (e.g., `Sources/Features/Auth/`). |
-| AST-grep not installed | Falls back to regex. Install with `brew install ast-grep` for higher precision on Swift. |
-| All matches classified OK | Pattern may be localized to the original file. Report zero bugs and stop — that's a successful run, not a failed one. |
-| Subagent dispatch fails | Falls back to sequential scan in the main agent. Slower but functional. |
-| Mixed intentional and buggy matches | Classify each individually. Do not batch-judge. |
-| Pattern matches across `#if os(...)` boundaries | The scanner should already respect platform blocks. If false positives appear, verify the pattern YAML's `applies_to_platforms` field is correct. |
+|---|---|
+| Diff parsing fails because the recent edit is not a bug fix (rename, comment change, formatting) | Pattern self-validation will fail. Fall back to Step 2A and ask the user to describe the pattern manually. |
+| Too many matches | Narrow the scope by passing a directory in the user's pattern description (e.g., `Sources/Features/Auth/`). |
+| AST-grep not installed | Use regex via the Grep tool. Install with `brew install ast-grep` for higher precision on Swift if precision matters. |
+| All matches classified OK | Pattern is localized to the original file. Report zero BUG findings and stop. That's a successful run, not a failed one. |
+| Sub-agent dispatch fails | Fall back to sequential scan in the main agent. Slower but functional. |
+| Mixed intentional and buggy matches | Classify each individually using Step 4 rules. Do not batch-judge. |
+| Pattern matches across `#if os(...)` boundaries | Honor platform conditionals during classification. Code inside the wrong `#if` block is OK, not BUG. |
 
 ---
 
-## Required references
+## Deferred to v1.1+
 
-- `references/pattern-schema.md` — YAML schema for `patterns/*.yaml`.
-- `references/report-format.md` — full report template and Issue Rating Table conventions.
-- `references/false-positives.md` — known intentional usages, expanded from real-world findings.
-- `references/ast-grep-quickstart.md` — AST query syntax for users new to AST-grep.
+These features are documented for future releases:
+
+- **Catalog mode (Step 2C):** a built-in pattern library for common Swift/SwiftUI anti-patterns the user can pick from when described and inferred modes both fail.
+- **JSON sidecar:** machine-readable output alongside the Markdown report, for chaining into downstream skills.
+- **Recurrence detection:** comparing the new report against prior reports in `.agents/research/` to detect recurring patterns and suggest architectural fixes.
+- **`known-intentional.yaml` user file:** explicit suppression of patterns the user has confirmed are intentional, so they don't surface again.
+- **Multi-language pattern construction beyond Swift:** the v1.0 inference works for any language (regex from diff is language-neutral), but v1.1 may add language-specific tuning.

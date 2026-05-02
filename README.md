@@ -1,12 +1,12 @@
 # bug-echo
 
-![Visitors](https://komarev.com/ghpvc/?username=Terryc21&repo=bug-echo&label=visitors&color=blue) ![GitHub stars](https://img.shields.io/github/stars/Terryc21/bug-echo?style=flat) ![GitHub forks](https://img.shields.io/github/forks/Terryc21/bug-echo?style=flat)
+A Claude Code skill: after you fix a bug, find other instances of the same pattern in the codebase.
+
+If bug-echo catches a real bug for you, a [coffee](https://buymeacoffee.com/stuffolio) is appreciated. Issue reports about what worked or didn't are even more useful.
 
 <a href="https://buymeacoffee.com/stuffolio">
   <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="150">
 </a>
-
-A Claude Code skill: after you fix a bug, find other instances of the same pattern in the codebase.
 
 ## What it does
 

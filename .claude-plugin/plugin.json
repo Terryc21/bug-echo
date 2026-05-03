@@ -1,0 +1,25 @@
+{
+  "name": "bug-echo",
+  "version": "1.0.0",
+  "description": "After you fix a bug, find and rate other instances of the same pattern in the codebase. Two modes: inferred from your recent fix (self-validates the constructed pattern against the pre-fix file before scanning) or user-described. Each match is read in context and classified individually as BUG / OK / REVIEW with severity, fix effort, and blast-radius columns. Pattern matching after a real fix is dramatically more accurate than pattern matching from a theoretical catalog.",
+  "author": {
+    "name": "Terry Nyberg"
+  },
+  "repository": "https://github.com/Terryc21/bug-echo",
+  "license": "Apache-2.0",
+  "keywords": [
+    "bug-pattern",
+    "code-audit",
+    "claude-code",
+    "ai-tools",
+    "post-fix-sweep",
+    "swift",
+    "swiftui"
+  ],
+  "skills": [
+    {
+      "name": "bug-echo",
+      "description": "After fixing a bug, find and rate other instances of the same pattern. Triggers: 'run bug-echo', 'echo this fix', 'scan for similar bugs', 'after-fix scan'."
+    }
+  ]
+}

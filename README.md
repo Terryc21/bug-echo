@@ -65,11 +65,22 @@ Total time: ~90 minutes. The list-row bug had never crashed because users hadn't
 
 ### Companion installs
 
-```bash
-# unforget
-git clone https://github.com/Terryc21/unforget.git ~/.claude/skills/unforget
+**Recommended (Claude Code plugin):**
 
-# radar-suite
+```
+/plugin marketplace add Terryc21/unforget
+/plugin install unforget@unforget
+
+/plugin marketplace add Terryc21/radar-suite
+/plugin install radar-suite@radar-suite
+```
+
+Run each pair one at a time per repo. Wait for "Successfully added marketplace" before running the install line.
+
+**Fallback (clone-and-copy):**
+
+```bash
+git clone https://github.com/Terryc21/unforget.git ~/.claude/skills/unforget
 git clone https://github.com/Terryc21/radar-suite.git ~/.claude/skills/radar-suite
 ```
 
@@ -83,6 +94,30 @@ bug-echo runs standalone too — see "How it works" above for the user-described
 
 ## Install
 
+**Recommended: Claude Code plugin**
+
+Run these two commands **one at a time** in Claude Code. Wait for Step 1 to confirm "Successfully added marketplace" before running Step 2.
+
+Step 1 — add the marketplace:
+
+```
+/plugin marketplace add Terryc21/bug-echo
+```
+
+Step 2 — install the plugin:
+
+```
+/plugin install bug-echo@bug-echo
+```
+
+The skill is now available. Invoke as `/bug-echo` (no `/skill` prefix needed), or via natural-language triggers like *"scan for similar bugs"*, *"echo this fix"*, *"after-fix scan"*.
+
+> **Why two separate blocks?** If you copy both `/plugin` lines at once and paste them into Claude Code, the slash-command dispatcher treats the first `/plugin` as the command and the rest of the paste as its arguments. Run them one at a time to avoid that trap.
+
+**Fallback: clone and copy**
+
+If you can't use the plugin path yet, the manual install still works:
+
 ```bash
 git clone https://github.com/Terryc21/bug-echo.git
 cp -r bug-echo/skills/bug-echo ~/.claude/skills/
@@ -91,7 +126,7 @@ cp -r bug-echo/skills/bug-echo ~/.claude/skills/
 cp -r bug-echo/skills/bug-echo /path/to/your/project/.claude/skills/
 ```
 
-Invoke with `/skill bug-echo` or natural-language triggers like *"scan for similar bugs"*, *"echo this fix"*, *"after-fix scan"*.
+Invoke with `/skill bug-echo` (with the prefix).
 
 ## Optional dependency
 
@@ -115,7 +150,7 @@ Current version: 1.0.0 (initial release). Built primarily for Swift/SwiftUI code
 
 - [code-smarter](https://github.com/Terryc21/code-smarter) -- prompter rewrites your prompt for clarity before Claude acts; tutorial-creator generates annotated code-reading lessons from your own codebase
 - [workflow-audit](https://github.com/Terryc21/workflow-audit) -- 5-layer audit of SwiftUI user workflows; finds dead ends, broken promises, and missing data wiring
-- [radar-suite](https://github.com/Terryc21/radar-suite) -- 6-skill audit suite for iOS/macOS Swift codebases. Behavioral, not grep-based: grep-based skills are the build inspector who confirms every bolt is torqued to spec; behavioral skills are the test driver who takes it on the road and finds that the GPS routes the user into a lake. Different layer, different bugs -- the two approaches complement each other, and a thorough audit uses both.
+- [radar-suite](https://github.com/Terryc21/radar-suite) -- 8-skill audit suite for iOS/macOS Swift codebases. Behavioral, not grep-based: grep-based skills are the build inspector who confirms every bolt is torqued to spec; behavioral skills are the test driver who takes it on the road and finds that the GPS routes the user into a lake. Different layer, different bugs -- the two approaches complement each other, and a thorough audit uses both.
 
 ## License
 

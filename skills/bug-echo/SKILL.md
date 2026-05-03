@@ -15,6 +15,26 @@ metadata:
 > **Quick Ref:** After a bug fix, identify the pattern, scan the codebase, classify findings, and produce a rated report.
 > Output: `.agents/research/YYYY-MM-DD-bug-echo-<slug>.md`.
 
+## Best invoked after a real fix
+
+bug-echo is most effective when the **pattern came from a fix that just shipped**. A real fix proves which anti-pattern matters in your specific codebase. Pattern matching after a real fix is dramatically more accurate than pattern matching from a theoretical catalog — the fix is the evidence the pattern is a bug.
+
+The high-leverage loop is **surface → verify → generalize**, three skills working in sequence:
+
+1. **Surface** — `/unforget` (or any tracker) shows you a deferred row you're about to mark Fixed.
+2. **Verify** — Before trusting the closure, confirm the fix is real. `/radar-suite focus on <symbol>` (or just reading the file) catches stale Open rows where the fix shipped weeks ago and nobody updated the ledger.
+3. **Generalize** — Run `/bug-echo` with a one-sentence description of what the fix replaced. The output is a rated list of every echo of that anti-pattern across the codebase — including instances **that haven't crashed yet** but sit under the same runtime conditions.
+
+Bugs that haven't fired yet are the highest-ROI thing in any audit cycle. They cost the same to fix as crashed bugs, but you skip the cost of the crash itself (lost user trust, support tickets, root-cause investigation under deadline). bug-echo is the systematic way to find them.
+
+**Companion skills:**
+- **unforget** (`https://github.com/Terryc21/unforget`) — the surface; consolidates deferred work in one file
+- **radar-suite** (`https://github.com/Terryc21/radar-suite`) — the verifier; confirms the fix is real before bug-echo generalizes
+
+bug-echo also runs standalone when you describe the pattern manually (Step 2A below) — useful when no recent fix exists but you've spotted a shape worth chasing.
+
+---
+
 **YOU MUST EXECUTE THIS WORKFLOW. Do not just describe it.**
 
 **Required output:** Every BUG finding MUST include Urgency, Risk of Fixing, Risk of Not Fixing, ROI, Blast Radius, and Fix Effort using the 9-column Issue Rating Table format defined in Step 5. Findings missing any of the six dimensions are invalid.

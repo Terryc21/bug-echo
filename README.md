@@ -136,6 +136,8 @@ Invoke with `/skill bug-echo` (with the prefix).
 
 Reports live in `.agents/research/`. The Markdown report is human-readable and self-contained.
 
+A complete sample report from a real bug-echo run is at [`skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md`](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). It demonstrates the full output format including BUG findings, WATCH classifications (a project-local extension of the standard BUG/OK/REVIEW), the issue rating table, detailed per-finding sections, suggested fixes, and the post-fix-sweep workflow that produced it.
+
 ## Status
 
 Current version: 1.0.0 (initial release). Built primarily for Swift/SwiftUI codebases; the methodology is language-agnostic. The pattern construction (regex from diff) works for any language.

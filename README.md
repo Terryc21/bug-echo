@@ -150,7 +150,8 @@ Current version: 1.0.0 (initial release). Built primarily for Swift/SwiftUI code
 
 ## Other Claude Code skills I have built
 
-- [code-smarter](https://github.com/Terryc21/code-smarter) -- prompter rewrites your prompt for clarity before Claude acts; tutorial-creator generates annotated code-reading lessons from your own codebase
+- [code-smarter](https://github.com/Terryc21/code-smarter) -- generates annotated code-reading lessons from your own codebase, with vocabulary tracking and gap analysis
+- [prompter](https://github.com/Terryc21/prompter) -- rewrites your prompt for clarity before Claude acts. (Originally bundled with code-smarter; split into its own repo for independent discovery.)
 - [workflow-audit](https://github.com/Terryc21/workflow-audit) -- 5-layer audit of SwiftUI user workflows; finds dead ends, broken promises, and missing data wiring
 - [radar-suite](https://github.com/Terryc21/radar-suite) -- 8-skill audit suite for iOS/macOS Swift codebases. Behavioral, not grep-based: grep-based skills are the build inspector who confirms every bolt is torqued to spec; behavioral skills are the test driver who takes it on the road and finds that the GPS routes the user into a lake. Different layer, different bugs -- the two approaches complement each other, and a thorough audit uses both.
 

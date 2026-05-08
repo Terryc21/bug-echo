@@ -15,11 +15,5 @@
     "post-fix-sweep",
     "swift",
     "swiftui"
-  ],
-  "skills": [
-    {
-      "name": "bug-echo",
-      "description": "After fixing a bug, find and rate other instances of the same pattern. Triggers: 'run bug-echo', 'echo this fix', 'scan for similar bugs', 'after-fix scan'."
-    }
   ]
 }

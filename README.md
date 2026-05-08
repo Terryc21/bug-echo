@@ -115,6 +115,8 @@ That sibling had been in production code for weeks. It would have hit a user eve
 
 The full sample report from a different real run is here: [example output](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). It demonstrates the standard output format (BUG findings, WATCH classifications, the issue rating table, suggested fixes).
 
+A second example showing **describe-mode** on a TypeScript codebase (a senior dev sweeps for `await` inside `Array.forEach` before fixing): [describe-mode example](skills/bug-echo/examples/describe-mode-await-in-forEach.md). Useful for understanding the second invocation mode where you type the pattern instead of inferring from a recent fix.
+
 ---
 
 ## Pattern construction details

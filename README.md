@@ -20,6 +20,21 @@ The trick that makes this practical: bug-echo self-validates the inferred patter
 
 ---
 
+## bug-echo vs. bug-prospector — which should you use?
+
+Both have "bug" in the name; they answer different questions and run at different times.
+
+| | bug-echo | [bug-prospector](https://github.com/Terryc21/bug-prospector) |
+|---|---|---|
+| **When you run it** | Right after you fix a bug | Before a release, after a crash report, during exploration |
+| **What it asks** | "Where else does this exact thing live?" | "What could go wrong?" |
+| **What it needs** | The diff of a fix you just committed | Just code |
+| **Pattern source** | The pattern is inferred from your actual diff and validated against the pre-fix file | 7 forward-looking lenses (assumptions, state machines, boundaries, lifecycle, errors, time, platform) |
+
+Many people run both — bug-prospector before releases, bug-echo after every bug fix. They complement each other.
+
+---
+
 ## Install
 
 Two commands in Claude Code, run one at a time:
@@ -185,12 +200,6 @@ All free, all Apache 2.0, all built while shipping Stuffolio.
 Current version: 1.0.0. Built primarily for Swift/SwiftUI. The pattern construction is language-agnostic; the platform-conditional handling is currently Swift-specific.
 
 Planned for v1.1: a built-in catalog mode for common Swift/SwiftUI anti-patterns (run when there's no recent fix to infer from), JSON sidecar output for chaining into downstream skills, recurrence detection across prior reports (catches bug classes that keep returning despite individual fixes), and a `known-intentional.yaml` user file for explicit suppression of patterns the user has confirmed are not bugs.
-
----
-
-## Deeper documentation
-
-The newer-dev-friendly README is preserved at [README-newer-dev.md](README-newer-dev.md) for readers who want a gentler walk-through. The original detailed README, which covers the post-fix sweep workflow with a longer worked example, is at [README-detailed.md](README-detailed.md).
 
 ---
 

@@ -171,7 +171,7 @@ A real chain example: an iPhone-only crash deferred for a month was marked Fixed
 
 ## Other Claude Code skills I've built
 
-- [code-smarter](https://github.com/Terryc21/code-smarter) — turns a file from your project into an annotated tutorial with vocabulary tracking, pre/post tests, and gap analysis. Works for any language.
+- [tutorial-creator](https://github.com/Terryc21/tutorial-creator) — turns a file from your project into an annotated tutorial with vocabulary tracking, pre/post tests, and gap analysis. Works for any language.
 - [prompter](https://github.com/Terryc21/prompter) — rewrites your Claude Code prompt for clarity (resolves ambiguous references, tightens vague verbs, restructures stacked questions) before acting.
 - [workflow-audit](https://github.com/Terryc21/workflow-audit) — 5-layer audit of SwiftUI user flows. Finds dead ends, dismiss traps, unwired features, and platform parity gaps.
 - [radar-suite](https://github.com/Terryc21/radar-suite) — 6 audit skills for iOS/macOS Swift codebases. Covers data models, time-bomb code that fails on aged data, UI navigation, backup/restore round-trips, visual quality, and a capstone that aggregates the rest.

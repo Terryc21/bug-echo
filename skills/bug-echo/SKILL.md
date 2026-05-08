@@ -1,7 +1,7 @@
 ---
 name: bug-echo
 description: 'After fixing a bug, find and rate other instances of the same pattern in the codebase. Two modes: described, or inferred from a recent fix with self-validation. Triggers: "run bug-echo", "echo this fix", "scan for similar bugs", "find other instances", "after-fix scan".'
-version: 1.0.0
+version: 1.1.0
 author: Terry Nyberg, Coffee & Code LLC
 license: Apache-2.0
 allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Agent]
@@ -277,11 +277,36 @@ Re-display the rating table at the end of the fix session with all Status column
 
 ---
 
+## When inference fails: delegate to bug-prospector
+
+If Step 2B's self-validation fails (the inferred pattern doesn't match the pre-fix file) and Step 2A's user-described mode also doesn't apply (no recent fix, no described pattern), bug-echo's job is done — it has no diff to work with. Rather than synthesize a catalog, the skill should suggest the right tool for the next step:
+
+```
+AskUserQuestion with questions:
+[
+  {
+    "question": "I can't infer a pattern from a recent fix or description. Run bug-prospector instead?",
+    "header": "Next",
+    "options": [
+      {"label": "Yes, run bug-prospector", "description": "It uses 7 forward-looking lenses to find bugs without needing a fix to reference"},
+      {"label": "I'll describe a pattern manually", "description": "Restart bug-echo in Step 2A described mode"},
+      {"label": "Cancel", "description": "Stop"}
+    ],
+    "multiSelect": false
+  }
+]
+```
+
+If "Yes, run bug-prospector": instruct the user to invoke `/bug-prospector` (skill must be installed separately — see [github.com/Terryc21/bug-prospector](https://github.com/Terryc21/bug-prospector)).
+
+bug-prospector and bug-echo cover opposite halves of the bug-finding loop. bug-echo is reactive (after a fix); bug-prospector is forward-looking (before a fix). When bug-echo can't infer, the user's question is "what could go wrong?" not "where else does this live?" — that's bug-prospector's job, not a missing feature in bug-echo.
+
+---
+
 ## Deferred to v1.1+
 
 These features are documented for future releases:
 
-- **Catalog mode (Step 2C):** a built-in pattern library for common Swift/SwiftUI anti-patterns the user can pick from when described and inferred modes both fail.
 - **JSON sidecar:** machine-readable output alongside the Markdown report, for chaining into downstream skills.
 - **Recurrence detection:** comparing the new report against prior reports in `.agents/research/` to detect recurring patterns and suggest architectural fixes.
 - **`known-intentional.yaml` user file:** explicit suppression of patterns the user has confirmed are intentional, so they don't surface again.

@@ -2,6 +2,8 @@
 
 **A Claude Code skill that runs after a fix lands, infers the anti-pattern from your diff, validates the pattern against the pre-fix file, and scans the rest of the codebase for sibling instances. Each match is read in context and classified BUG / OK / REVIEW.**
 
+> **Companion:** [bug-prospector](https://github.com/Terryc21/bug-prospector) — runs *before* a fix to find bugs you haven't seen yet. The two skills cover opposite halves of the bug-finding loop.
+
 Built while shipping [Stuffolio](https://stuffolio.app), an iOS/macOS app I work on every day. Free, open source, no paid tier, no referral links.
 
 <a href="https://buymeacoffee.com/stuffolio"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="120"></a>
@@ -48,6 +50,20 @@ Two commands in Claude Code, run one at a time:
 ```
 
 > **Why not paste both at once?** Claude Code's slash-command dispatcher treats the second `/plugin` as text inside the first command and tries to clone a repo with a malformed name. The error message ("SSH authentication failed") is misleading. Run them one at a time.
+
+### Optional: install bug-prospector alongside
+
+bug-echo runs after a fix. [bug-prospector](https://github.com/Terryc21/bug-prospector) runs before one — same workflow loop, opposite end. Most users want both:
+
+```
+/plugin marketplace add Terryc21/bug-prospector
+```
+
+```
+/plugin install bug-prospector@bug-prospector
+```
+
+After installing, run `/bug-prospector` before releases (forward-looking audit) and `/bug-echo` after each bug fix (sibling scan).
 
 ---
 

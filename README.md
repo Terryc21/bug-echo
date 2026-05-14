@@ -1,26 +1,42 @@
 # bug-echo
 
+![Last commit](https://img.shields.io/github/last-commit/Terryc21/bug-echo) ![Stars](https://img.shields.io/github/stars/Terryc21/bug-echo?style=flat) ![Issues](https://img.shields.io/github/issues/Terryc21/bug-echo) ![License](https://img.shields.io/github/license/Terryc21/bug-echo) ![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet)
+
 **A Claude Code skill that runs after a fix lands, infers the anti-pattern from your diff, validates the pattern against the pre-fix file, and scans the rest of the codebase for sibling instances. Each match is read in context and classified BUG / OK / REVIEW.**
 
 > **Companion:** [bug-prospector](https://github.com/Terryc21/bug-prospector) — runs *before* a fix to find bugs you haven't seen yet. The two skills cover opposite halves of the bug-finding loop.
 
-Built while shipping [Stuffolio](https://stuffolio.app), an iOS/macOS app I work on every day. Free, open source, no paid tier, no referral links.
+bug-echo and pattern-based linters are complementary, not competitive: linters check every file against pre-built rules on every save; bug-echo runs once per fix to scan for siblings of a bug that just demonstrated itself. **A thorough audit uses both.**
 
-<a href="https://buymeacoffee.com/stuffolio"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="120"></a>
+Built while shipping [Stuffolio](https://stuffolio.app), an iOS/macOS app currently at build 33. Free, open source, Apache 2.0.
 
-If bug-echo catches a real bug for you, a [coffee](https://buymeacoffee.com/stuffolio) is appreciated. Issue reports about what worked or didn't are even more useful.
+## TL;DR
 
----
+- **What:** A Claude Code skill that runs *after* a bug fix, infers the anti-pattern from the diff, and scans the codebase for sibling instances. Each match classified BUG / OK / REVIEW with file:line citations.
+- **Why:** The pattern bug-echo scans for is one that *just demonstrated itself in your codebase*. After-the-fact pattern matching beats catalog matching because the pattern was selected by reality, not by a rule author guessing.
+- **Install:** Two `/plugin` commands in Claude Code; then `/bug-echo` is available in any project.
+- **Try first:** After your next bug fix, run `/bug-echo`. It reads the diff, self-validates the inferred pattern, and scans in ~2 minutes on a typical Swift codebase.
+- **Example output:** [a real sibling-bug scan on Stuffolio](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). Also: [describe-mode example on TypeScript](skills/bug-echo/examples/describe-mode-await-in-forEach.md).
+- **Maturity:** v1.0.0; used through real App Store submission cycles; works on any language for pattern construction, with platform-conditional handling currently Swift-specific.
 
-## Why this works better than a generic linter
+## What bug-echo is for vs what linters are for
 
-Linters and pattern-based auditors compare your code to a pre-built rule catalog assembled in advance. The catalog reflects what someone *thought* was a bug at the time the rule was written. Most rules are noisy; many are wrong; some bugs aren't representable as a rule at all.
+bug-echo and linters are complementary — they catch different bugs at different times in your workflow.
 
-bug-echo flips the direction. The pattern it scans for is one that **just demonstrated it was a real bug in your specific codebase, fifteen minutes ago, in production code you wrote**. The fix is the proof. After-the-fact pattern matching is dramatically more accurate than catalog matching, because the pattern was selected by reality, not by a rule author guessing.
+**Pattern-based linters (SwiftLint, ESLint, custom rule sets)** check every file against a pre-built catalog on every save. The catalog reflects what someone *thought* was a bug at the time the rule was written. Linters are fast, cheap, and catch a real class of style and pattern violations that bug-echo would never run for (you wouldn't fire a sibling scan for every missing `@MainActor`). **They will find issues bug-echo won't.**
+
+**bug-echo** flips the direction. It runs *once per fix*, in response to a bug that **just demonstrated itself in your codebase, fifteen minutes ago, in production code you wrote**. The fix is the proof. After-the-fact pattern matching is dramatically more accurate than catalog matching because the pattern was selected by reality, not by a rule author guessing. **It will find sibling instances of bugs your linter has no rule for** — because the bug was novel enough to need fixing in the first place.
 
 The trick that makes this practical: bug-echo self-validates the inferred pattern against the pre-fix version of the file before scanning. If the pattern doesn't match the bug it was extracted from, the skill stops rather than scanning with a bad search. You never get findings from a misinterpreted diff.
 
----
+| What linters do better | What bug-echo does better |
+|---|---|
+| Run on every save (cheap, continuous) | Run once per fix (focused, narrow) |
+| Catalog of well-understood violations | Pattern from your most recent real bug |
+| Catch style and pattern violations | Catch siblings of the bug you just fixed |
+| Mature ecosystem | Novel-bug propagation; no catalog needed |
+
+If your project already uses SwiftLint or another pattern-based audit, keep it. bug-echo runs at a different moment for a different purpose.
 
 ## bug-echo vs. bug-prospector — which should you use?
 
@@ -35,8 +51,6 @@ Both have "bug" in the name; they answer different questions and run at differen
 
 Many people run both — bug-prospector before releases, bug-echo after every bug fix. They complement each other.
 
----
-
 ## Install
 
 Two commands in Claude Code, run one at a time:
@@ -49,7 +63,15 @@ Two commands in Claude Code, run one at a time:
 /plugin install bug-echo@bug-echo
 ```
 
-> **Why not paste both at once?** Claude Code's slash-command dispatcher treats the second `/plugin` as text inside the first command and tries to clone a repo with a malformed name. The error message ("SSH authentication failed") is misleading. Run them one at a time.
+> **Why two commands?** Claude Code's slash-command dispatcher treats the second `/plugin` as text inside the first command and tries to clone a repo with a malformed name. The error message ("SSH authentication failed") is misleading. Run them one at a time.
+
+After installing, the easiest way to try it: wait until your next real bug fix, commit (or stage) it, then run:
+
+```
+/bug-echo
+```
+
+The skill reads the diff, self-validates the inferred pattern against the pre-fix file, and scans in ~2 minutes on a typical Swift codebase. You'll get a real report you can act on.
 
 ### Optional: install bug-prospector alongside
 
@@ -57,15 +79,10 @@ bug-echo runs after a fix. [bug-prospector](https://github.com/Terryc21/bug-pros
 
 ```
 /plugin marketplace add Terryc21/bug-prospector
-```
-
-```
 /plugin install bug-prospector@bug-prospector
 ```
 
-After installing, run `/bug-prospector` before releases (forward-looking audit) and `/bug-echo` after each bug fix (sibling scan).
-
----
+(Same one-at-a-time rule applies.)
 
 ## Workflow
 
@@ -82,11 +99,9 @@ The expected loop is short:
 
 You can also invoke the skill in **describe mode** (`/bug-echo "<pattern description>"`) when there's no recent diff. Useful for hypothesis-driven sweeps, for fixes whose diff is too noisy to infer from cleanly, or when the bug is conceptual ("anywhere we use `Task { ... }` inside a SwiftUI view body without `[weak self]`").
 
----
-
 ## A worked example
 
-Yesterday I fixed a SwiftUI captured-`self` staleness bug. Save handler called `dismiss()` on macOS inline in a `NavigationSplitView` — which closes the host window. The bug was in this line, repeated in two slightly different shapes:
+I fixed a SwiftUI captured-`self` staleness bug. Save handler called `dismiss()` on macOS inline in a `NavigationSplitView` — which closes the host window. The bug was in this line, repeated in two slightly different shapes:
 
 ```swift
 // Pre-fix (buggy)
@@ -115,9 +130,7 @@ That sibling had been in production code for weeks. It would have hit a user eve
 
 The full sample report from a different real run is here: [example output](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). It demonstrates the standard output format (BUG findings, WATCH classifications, the issue rating table, suggested fixes).
 
-A second example showing **describe-mode** on a TypeScript codebase (a senior dev sweeps for `await` inside `Array.forEach` before fixing): [describe-mode example](skills/bug-echo/examples/describe-mode-await-in-forEach.md). Useful for understanding the second invocation mode where you type the pattern instead of inferring from a recent fix.
-
----
+A second example showing **describe-mode** on a TypeScript codebase (a senior dev sweeps for `await` inside `Array.forEach` before fixing): [describe-mode example](skills/bug-echo/examples/describe-mode-await-in-forEach.md).
 
 ## Pattern construction details
 
@@ -129,9 +142,7 @@ A second example showing **describe-mode** on a TypeScript codebase (a senior de
 
 **Platform conditionals (Swift):** if a pattern matches inside a `#if os(...)` block that excludes the platform where the pattern is buggy, the match is automatically OK. This avoids false flags on Universal codebases where the same code shape is correct on iOS and incorrect on macOS (or vice versa).
 
----
-
-## Optional: AST-grep for higher precision
+### Optional: AST-grep for higher precision
 
 bug-echo defaults to regex via the Grep tool. Regex is fast and catches most patterns. AST-grep is meaningfully better when:
 
@@ -140,26 +151,26 @@ bug-echo defaults to regex via the Grep tool. Regex is fast and catches most pat
 - You're in a codebase where formatter runs have produced inconsistent whitespace
 - The anti-pattern depends on AST structure (e.g., "any closure assigned to a `let` whose type is `() -> Void`")
 
-If `ast-grep` is on PATH, the skill detects it and uses it automatically. To install:
+If `ast-grep` is on PATH, the skill detects it and uses it automatically. To install: `brew install ast-grep`. Regex still works fine if you skip this; the skill notes which tool produced the matches in the report header.
 
-```
-brew install ast-grep
-```
+## Output format
 
-Regex still works fine if you skip this. The skill notes which tool produced the matches in the report header so you know which path was taken.
+Reports go to `.agents/research/YYYY-MM-DD-bug-echo-*.md` in your project. Standard format across the radar/audit ecosystem:
 
----
+- File and line citations for every claim
+- 9-column rating table: severity, urgency, risk-of-fix, risk-of-no-fix, ROI, blast radius, fix effort, status, axis classification
+- 3-axis classification: Axis 1 (release-blocking), Axis 2 (quality), Axis 3 (hygiene)
+- Suggested fix for each BUG finding when one is mechanical
 
-## CI and pre-commit integration
+### Reading the reports
 
-bug-echo isn't a CI-shaped tool. It needs a real fix to compare against, ideally with the pre-fix version available via git, and the per-match classification step uses Claude — that's not something you want firing on every commit. Two options for automation:
+The 9-column rating table needs a wide terminal (~180 chars) to render as a horizontal table. In a narrower window the cells stack vertically and the report becomes harder to scan. For best readability:
 
-- **Manual gate.** Add a step to your release checklist that runs `/bug-echo` after each merged bug-fix PR. Captures sibling bugs before they reach a release branch.
-- **Selective trigger.** A pre-merge hook that runs only when the commit message contains a specific tag (e.g., `[bug-fix]`). The hook calls Claude Code via the `claude` CLI. Cost-effective for teams that label bug-fix commits.
+- **GitHub or GitLab**: open the report file in the web UI; tables render natively.
+- **Markdown viewer apps**: [MacDown](https://macdown.uranusjr.com/) (Mac, free), [Marked 2](https://marked2app.com/) (Mac, paid), [Obsidian](https://obsidian.md/) or [Typora](https://typora.io/) (cross-platform).
+- **VS Code**: built-in Markdown Preview (cmd-shift-V on Mac).
 
-Don't put bug-echo on every commit. The pre-fix-vs-post-fix premise breaks down for ordinary feature work, and the budget impact is real.
-
----
+If tables look broken in your terminal (rendered as vertical blocks instead of horizontal rows), widen the window or use one of the apps above.
 
 ## When to skip the skill entirely
 
@@ -172,9 +183,16 @@ A few cases where running it isn't worth the tokens:
 
 Rule of thumb: if the bug surprised you, run bug-echo. Surprise is a signal the bug shape isn't on your mental list of things to look for, which makes it the kind of pattern most likely to repeat unspotted elsewhere.
 
----
+## CI and pre-commit integration
 
-## Honest about limits
+bug-echo isn't a CI-shaped tool. It needs a real fix to compare against, ideally with the pre-fix version available via git, and the per-match classification step uses Claude — that's not something you want firing on every commit. Two options for automation:
+
+- **Manual gate.** Add a step to your release checklist that runs `/bug-echo` after each merged bug-fix PR. Captures sibling bugs before they reach a release branch.
+- **Selective trigger.** A pre-merge hook that runs only when the commit message contains a specific tag (e.g., `[bug-fix]`). The hook calls Claude Code via the `claude` CLI. Cost-effective for teams that label bug-fix commits.
+
+Don't put bug-echo on every commit. The pre-fix-vs-post-fix premise breaks down for ordinary feature work, and the budget impact is real.
+
+## Honest limits
 
 The skill catches what regex (or AST) can express, classified with a 20-line context window and Claude's judgment. Things it can't catch:
 
@@ -184,11 +202,11 @@ The skill catches what regex (or AST) can express, classified with a 20-line con
 
 A clean bug-echo run means zero matches for the inferred pattern. It does not mean zero bugs.
 
----
+**Where to look for the bugs bug-echo won't find:** pattern-based linters (SwiftLint, etc.) catch single-file style violations; [bug-prospector](https://github.com/Terryc21/bug-prospector) catches forward-looking behavioral assumptions; runtime profiling (Instruments, sanitizers) catches concurrency and memory issues; targeted unit tests catch business-logic correctness. bug-echo covers the sibling-bug-after-a-fix slot in that picture.
 
 ## Advanced: the post-fix sweep (three skills together)
 
-For high-stakes fixes (P0 incidents, security-adjacent bugs, fixes to widely-shared code), bug-echo composes with two other skills I've built:
+For high-stakes fixes (P0 incidents, security-adjacent bugs, fixes to widely-shared code), bug-echo composes with two other skills:
 
 | Stage | Skill | Behavior |
 |---|---|---|
@@ -200,18 +218,18 @@ The shape is **surface → verify → generalize**: confirm the issue is real an
 
 A real chain example: an iPhone-only crash deferred for a month was marked Fixed by `unforget`, then `radar-suite focus on collapsibleSectionsStack` reported the fix had actually shipped weeks earlier in two specific commits and the ledger was stale. Closed as Fixed. `bug-echo "VStack with 12+ if-conditional children in one scope"` then found one BUG (a list-row view with 16 conditional children) and three WATCH sites at 10-12. Fixed the BUG with the same split pattern. Total time ~90 minutes.
 
----
+## Other Claude Code skills
 
-## Other Claude Code skills I've built
+Companion tools built on the same shipping-real-software loop:
 
-- [tutorial-creator](https://github.com/Terryc21/tutorial-creator) — turns a file from your project into an annotated tutorial with vocabulary tracking, pre/post tests, and gap analysis. Works for any language.
-- [prompter](https://github.com/Terryc21/prompter) — rewrites your Claude Code prompt for clarity (resolves ambiguous references, tightens vague verbs, restructures stacked questions) before acting.
-- [workflow-audit](https://github.com/Terryc21/workflow-audit) — 5-layer audit of SwiftUI user flows. Finds dead ends, dismiss traps, unwired features, and platform parity gaps.
-- [radar-suite](https://github.com/Terryc21/radar-suite) — 6 audit skills for iOS/macOS Swift codebases. Covers data models, time-bomb code that fails on aged data, UI navigation, backup/restore round-trips, visual quality, and a capstone that aggregates the rest.
+- [**bug-prospector**](https://github.com/Terryc21/bug-prospector) — runs *before* a fix; 7-lens forward-looking audit. Companion skill.
+- [**radar-suite**](https://github.com/Terryc21/radar-suite) — 6 audit skills for iOS/macOS Swift codebases. Covers data models, time-bomb code that fails on aged data, UI navigation, backup/restore round-trips, visual quality, and a capstone that aggregates the rest.
+- [**workflow-audit**](https://github.com/Terryc21/workflow-audit) — 5-layer audit of SwiftUI user flows. Finds dead ends, dismiss traps, unwired features, and platform parity gaps.
+- [**tutorial-creator**](https://github.com/Terryc21/tutorial-creator) — turns a file from your project into an annotated tutorial with vocabulary tracking, pre/post tests, and gap analysis. Works for any language.
+- [**unforget**](https://github.com/Terryc21/unforget) — consolidates deferred work (paused plans, audit findings, observed bugs) into one structured file.
+- [**prompter**](https://github.com/Terryc21/prompter) — rewrites your Claude Code prompt for clarity before acting.
 
 All free, all Apache 2.0, all built while shipping Stuffolio.
-
----
 
 ## Status
 
@@ -219,12 +237,10 @@ Current version: 1.0.0. Built primarily for Swift/SwiftUI. The pattern construct
 
 Planned for v1.1: a built-in catalog mode for common Swift/SwiftUI anti-patterns (run when there's no recent fix to infer from), JSON sidecar output for chaining into downstream skills, recurrence detection across prior reports (catches bug classes that keep returning despite individual fixes), and a `known-intentional.yaml` user file for explicit suppression of patterns the user has confirmed are not bugs.
 
----
-
 ## License
 
 Apache 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ## Author
 
-Terry Nyberg, [Coffee & Code LLC](https://stuffolio.app/).
+Terry Nyberg, [Coffee & Code LLC](https://stuffolio.app/). If bug-echo catches a real bug for you, [a coffee](https://buymeacoffee.com/stuffolio) is appreciated. Issue reports about what worked or didn't are even more useful.

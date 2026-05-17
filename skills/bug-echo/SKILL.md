@@ -1,11 +1,11 @@
 ---
 name: bug-echo
 description: 'After fixing a bug, find and rate other instances of the same pattern in the codebase. Two modes: described, or inferred from a recent fix with self-validation. Triggers: "run bug-echo", "echo this fix", "scan for similar bugs", "find other instances", "after-fix scan".'
-version: 1.1.1
-author: Terry Nyberg, Coffee & Code LLC
 license: Apache-2.0
 allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Agent]
 metadata:
+  version: 1.1.1
+  author: Terry Nyberg, Coffee & Code LLC
   tier: execution
   category: debugging
 ---

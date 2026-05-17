@@ -49,10 +49,10 @@ Before any scanning work, verify the working environment is sane.
 
 1. **Check for uncommitted changes:**
    - Run `git status --porcelain` via Bash.
-   - If output is non-empty (uncommitted changes exist), use AskUserQuestion to ask: "There are uncommitted changes. Commit before scanning, or proceed anyway?" Options: "Commit first", "Proceed (accept risk)", "Cancel". On "Commit first", show files changed and stop with a request that the user commit. On "Cancel", stop. On "Proceed (accept risk)", log "User accepted risk of uncommitted changes" and continue.
+   - If output is non-empty (uncommitted changes exist), use AskUserQuestion to ask: "There are uncommitted changes. If these are from a prior bug-echo session, commit them first so this run has a clean baseline. Otherwise: commit before scanning, or proceed anyway?" Options: "Commit first", "Proceed (accept risk)", "Cancel". On "Commit first", show files changed and stop with a request that the user commit. On "Cancel", stop. On "Proceed (accept risk)", log "User accepted risk of uncommitted changes" and continue.
 
-2. **Check the codebase compiles (best-effort):**
-   - This is a soft check. If `Package.swift`, `xcodeproj`, `Cargo.toml`, `package.json`, or similar build manifest is detected via Glob in the project root, note this. Do NOT actually run a build (too slow, too platform-specific). The user is responsible for ensuring their codebase builds before running bug-echo. If you detect build manifests are missing, mention it but continue.
+2. **Note build manifest presence (advisory):**
+   - Detect via Glob whether `Package.swift`, `xcodeproj`, `Cargo.toml`, `package.json`, or a similar build manifest exists in the project root. Note the result in the report header. Do NOT run a build — that's the user's responsibility before applying any fix this skill suggests. If no manifest is detected, mention it but continue scanning. This step is advisory metadata for the report, not a gate.
 
 3. **Ensure output directory exists:**
    - If `.agents/research/` does not exist, create it via `mkdir -p .agents/research/` via Bash.
@@ -122,7 +122,12 @@ This is bug-echo's distinctive mode. Execute these steps directly using Bash and
 
 4. **Self-validate against the pre-fix file.**
    - Determine the file the fix was applied to (from the diff header `--- a/path/to/file.swift`).
-   - Read the pre-fix version: `git show HEAD~1:path/to/file.swift` via Bash (or HEAD if working tree). Compare against the constructed pattern using Grep.
+   - Read the pre-fix version using whichever of these matches the diff source:
+     - **Staged diff** (Step 1 used `git diff --cached`): the pre-fix version is the HEAD baseline. Use `git show HEAD:path/to/file.swift`.
+     - **Unstaged diff** (Step 1 used `git diff`): the pre-fix version is HEAD. Use `git show HEAD:path/to/file.swift`.
+     - **Most recent commit** (Step 1 used `git log -p -1`): the pre-fix version is HEAD~1. Use `git show HEAD~1:path/to/file.swift`. If this returns empty because the repo has only one commit (`git rev-list --count HEAD` returns 1), abort with "no pre-fix baseline available; switch to Step 2A described mode."
+     - **File renamed in the most recent commit:** detect via `git log --follow --name-status -1 -- path/to/file.swift`. If the `R<score>` line shows a prior path, use `git show HEAD~1:<prior-path>` instead.
+   - Compare the result against the constructed pattern using Grep.
    - **If the pattern matches the pre-fix file:** validated. Proceed.
    - **If the pattern does not match anything:** unvalidated. The constructed pattern doesn't actually find the bug it's supposed to find. Halt and try one of:
      - Construct a different pattern (broader or narrower).
@@ -153,6 +158,10 @@ Run the validated pattern across the codebase.
    - If AST-grep is installed and the language is Swift, run AST-grep against the pattern via Bash for higher precision.
    - If AST-grep is not installed or fails, fall back to regex via Grep. Note in the report which tool produced the matches.
 
+4. **Language-specific custom analyzers (rare, opt-in):**
+   - For patterns that neither regex nor AST-grep can express cleanly — e.g., counting scope-direct conditional children at the lexical scope level (see `examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md`, which uses a custom Python brace-depth analyzer) — a custom analyzer is acceptable. Invoke an external script (Python, Swift, etc.) via the Bash tool. The script must accept a list of paths and emit findings with `file:line` context the classification step in Step 4 can consume. Note the tool in the report header's "Scan tool:" field.
+   - This is rare. Default is Grep; AST-grep is the first fallback; custom analyzers are the second.
+
 ---
 
 ## Step 4: Classify findings
@@ -166,6 +175,7 @@ For each match, regardless of how it was found:
 
 3. **Classify** as one of:
    - **BUG:** matches the anti-pattern, correctness issue confirmed in this context.
+   - **WATCH:** matches the anti-pattern but is contextually near-threshold or already has an architectural defense in place (e.g., the match sits inside a `@ViewBuilder` split that scoped a known crash, but if more conditions are added the scope could cross back into BUG territory). WATCH findings get a row in the Issue Rating Table with urgency typically ⚪ LOW or 🟢 MEDIUM and a documentation-only suggested fix (e.g., add a comment warning future maintainers about the threshold). Use WATCH when the code is correct today but the path to incorrect is short and foreseeable; use REVIEW when you can't tell.
    - **OK:** correct usage, no action needed (e.g., `as!` after a validated `is` check; strong `self` capture in a SwiftUI struct view).
    - **REVIEW:** context unclear, requires human judgment.
 
@@ -197,6 +207,7 @@ Write the report directly to `.agents/research/YYYY-MM-DD-bug-echo-<slug>.md` us
 ## Summary
 
 - BUG findings: [N]
+- WATCH findings: [N]
 - OK findings: [N]
 - REVIEW findings: [N]
 
@@ -223,6 +234,29 @@ For each BUG finding:
 
 **Why this is a bug:** [1-2 sentences]
 **Suggested fix:** [1-2 sentences]
+```
+
+## WATCH Findings (near-threshold, defensive only)
+
+WATCH findings use the same Issue Rating Table shape as BUG, but typically with documentation-only suggested fixes (e.g., add a comment near the threshold warning future maintainers, or convert the conditional shape to one that scales better). They are not release-blocking; they record what's currently safe but easy to break.
+
+### Issue Rating Table
+
+Same 9 columns as BUG. Urgency is typically ⚪ LOW or 🟢 MEDIUM.
+
+### Detailed findings
+
+For each WATCH finding:
+
+```
+**[N]. [short description]**
+
+`path/to/file.swift:[line]`
+
+[code snippet, 5-10 lines around the match]
+
+**Why this is WATCH not BUG:** [1-2 sentences explaining the architectural defense or near-threshold status]
+**Suggested fix (defensive, not urgent):** [1-2 sentences, typically a comment or refactor recommendation]
 ```
 
 ## OK Findings (intentional, no action needed)
@@ -258,6 +292,24 @@ Options:
 3. Ask for explicit approval before applying.
 4. Apply via the Edit tool only after the user confirms.
 5. Update the report's Issue Rating Table to mark Status as `Fixed`, `Skipped`, or `Deferred` for each finding processed.
+6. After all selected fixes are applied, present an AskUserQuestion:
+
+   ```
+   Question (header: "Commit"): "Commit these bug-echo fixes now?"
+   Options:
+   - "Yes, commit as `bug-echo: applied N fixes from <slug>`" (Recommended).
+     Stage only the files this skill edited (track them as Step 6.4 applies
+     each Edit), then `git commit` via Bash with the message
+     `bug-echo: applied <N> fixes from <slug> report`. The commit message
+     references the report at `.agents/research/<date>-bug-echo-<slug>.md`
+     so the commit and the report are linked.
+   - "Leave uncommitted". The user commits later. Note: re-running bug-echo
+     will trip Pre-flight's clean-tree check until these changes are
+     committed or reverted.
+   - "Cancel". Stop without committing.
+   ```
+
+   On "Yes, commit": run `git add <file1> <file2> ...` for only the files Step 6.4 edited (do not stage anything else), then `git commit -m "bug-echo: applied <N> fixes from <slug> report"`. Verify with `git status --porcelain` that only the bug-echo-edited files were committed.
 
 Re-display the rating table at the end of the fix session with all Status columns populated.
 

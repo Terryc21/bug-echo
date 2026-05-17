@@ -16,7 +16,7 @@ Built while shipping [Stuffolio](https://stuffolio.app), an iOS/macOS app curren
 - **Why:** The pattern bug-echo scans for is one that *just demonstrated itself in your codebase*. After-the-fact pattern matching beats catalog matching because the pattern was selected by reality, not by a rule author guessing.
 - **Install:** Two `/plugin` commands in Claude Code; then `/bug-echo` is available in any project.
 - **Try first:** After your next bug fix, run `/bug-echo`. It reads the diff, self-validates the inferred pattern, and scans in ~2 minutes on a typical Swift codebase.
-- **Example output:** [a real sibling-bug scan on Stuffolio](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). Also: [describe-mode example on TypeScript](skills/bug-echo/examples/describe-mode-await-in-forEach.md).
+- **Example output:** [a real sibling-bug scan on Stuffolio](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). Also: [describe-mode example on TypeScript (synthesized)](skills/bug-echo/examples/describe-mode-await-in-forEach.md).
 - **Maturity:** v1.1.0; used through real App Store submission cycles; works on any language for pattern construction, with platform-conditional handling currently Swift-specific.
 
 ## What bug-echo is for vs what linters are for
@@ -130,7 +130,7 @@ That sibling had been in production code for weeks. It would have hit a user eve
 
 The full sample report from a different real run is here: [example output](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). It demonstrates the standard output format (BUG findings, WATCH classifications, the issue rating table, suggested fixes).
 
-A second example showing **describe-mode** on a TypeScript codebase (a senior dev sweeps for `await` inside `Array.forEach` before fixing): [describe-mode example](skills/bug-echo/examples/describe-mode-await-in-forEach.md).
+A second example showing **describe-mode** on a TypeScript codebase (a senior dev sweeps for `await` inside `Array.forEach` before fixing): [describe-mode example — synthesized](skills/bug-echo/examples/describe-mode-await-in-forEach.md). Marked synthesized because the pattern is real but the codebase is illustrative; the report shape and classification rules match real runs.
 
 ## Pattern construction details
 
@@ -158,9 +158,9 @@ If `ast-grep` is on PATH, the skill detects it and uses it automatically. To ins
 Reports go to `.agents/research/YYYY-MM-DD-bug-echo-*.md` in your project. Standard format across the radar/audit ecosystem:
 
 - File and line citations for every claim
-- 9-column rating table: severity, urgency, risk-of-fix, risk-of-no-fix, ROI, blast radius, fix effort, status, axis classification
-- 3-axis classification: Axis 1 (release-blocking), Axis 2 (quality), Axis 3 (hygiene)
-- Suggested fix for each BUG finding when one is mechanical
+- 9-column rating table: #, Finding, Urgency, Risk: Fix, Risk: No Fix, ROI, Blast Radius, Fix Effort, Status. The Status column reads `Open` on first display and updates to `Fixed`, `Deferred`, or `Skipped` after the guided-fix session in Step 6.
+- 4-class classification: BUG, WATCH, OK, REVIEW (see SKILL.md Step 4). Each finding gets one classification plus all eight rating-table dimensions.
+- Suggested fix for each BUG finding when one is mechanical; documentation-only suggestion for each WATCH finding
 
 ### Reading the reports
 

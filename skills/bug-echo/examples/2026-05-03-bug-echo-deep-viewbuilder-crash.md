@@ -24,7 +24,7 @@
 - OK findings: 0
 - REVIEW findings: 0
 
-A "WATCH" classification is used here in addition to the spec's BUG/OK/REVIEW because three of the four hits are in dedicated `@ViewBuilder` properties whose siblings are already small (the architectural defense is in place), but they themselves carry density that would put them into the BUG zone if they were ever inlined. They warrant a comment to prevent regression but no code change today.
+Three of the four hits are classified WATCH (per Step 4 of the spec): they sit inside dedicated `@ViewBuilder` properties whose siblings are already small, so the architectural defense is in place, but they themselves carry density that would put them into the BUG zone if they were ever inlined. They warrant a comment to prevent regression but no code change today.
 
 ## BUG Findings — Issue Rating Table
 

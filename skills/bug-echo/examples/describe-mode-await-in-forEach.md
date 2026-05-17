@@ -30,7 +30,23 @@ is silently discarded because forEach ignores callback return values"
 
 **Correct pattern:** When sequential awaiting is intended, use `for...of`. When parallel awaiting is intended, use `await Promise.all(arr.map(...))`. Both forms make the intent explicit and actually wait.
 
-**Search criterion (ast-grep query):** any `MemberExpression` whose property is `forEach`, whose argument is an `ArrowFunctionExpression` or `FunctionExpression` containing an `AwaitExpression` in its body. AST-grep is required here because regex on `forEach` + `await` produces too many false positives (the two can appear in unrelated parts of a file). The structural query catches only the buggy shape.
+**Search criterion (natural language):** any `MemberExpression` whose property is `forEach`, whose argument is an `ArrowFunctionExpression` or `FunctionExpression` containing an `AwaitExpression` in its body. AST-grep is required here because regex on `forEach` + `await` produces too many false positives (the two can appear in unrelated parts of a file). The structural query catches only the buggy shape.
+
+**ast-grep query (TypeScript):**
+
+```yaml
+id: await-in-foreach
+language: TypeScript
+rule:
+  pattern: $ARR.forEach(async ($$$ARGS) => { $$$BODY })
+  has:
+    pattern: await $EXPR
+    stopBy: end
+```
+
+Run with: `ast-grep scan --rule await-in-foreach.yml src/`.
+
+For a quick exploration without a YAML rule file, the two-stage approximation `ast-grep --pattern '$ARR.forEach(async ($$$) => { $$$ })' --lang ts | xargs grep -l 'await'` is less precise but works inline. The exact ast-grep syntax depends on the ast-grep version on your PATH; if your version rejects the YAML, run `ast-grep --help scan` and adjust the `has` block accordingly.
 
 ---
 

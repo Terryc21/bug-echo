@@ -54,18 +54,20 @@ Before any scanning work, verify the working environment is sane.
 2. **Note build manifest presence (advisory):**
    - Detect via Glob whether `Package.swift`, `xcodeproj`, `Cargo.toml`, `package.json`, or a similar build manifest exists in the project root. Note the result in the report header. Do NOT run a build — that's the user's responsibility before applying any fix this skill suggests. If no manifest is detected, mention it but continue scanning. This step is advisory metadata for the report, not a gate.
 
-3. **Ensure output directory exists:**
-   - If `.agents/research/` does not exist, create it via `mkdir -p .agents/research/` via Bash.
+3. **Resolve output directory:**
+   - **Default:** `.agents/research/`. This is a convention shared with radar-suite, bug-prospector, and other Coffee & Code audit skills; if your project doesn't already use it, this run creates it via `mkdir -p .agents/research/`.
+   - **Override:** if the invoking prompt contains `output=<path>` (e.g., `/bug-echo output=docs/audits/`), use that path instead. Create it with `mkdir -p` if missing. Trailing slash is optional.
+   - Write the resolved path to a variable used by Step 5's report-generation step. The report header should also record the resolved path so the user can find it.
 
 ### Freshness rule
 
-Base all findings on the current source tree only. Do not read prior reports in `.agents/research/`, `scratch/`, or auto-memory caches as a source of findings. Prior reports are not consulted in v1.0.
+Base all findings on the current source tree only. Do not read prior reports in `.agents/research/`, `scratch/`, or auto-memory caches as a source of findings. See § Deferred to v1.1+ for the planned recurrence-detection mode that would cross-reference prior reports.
 
 ---
 
 ## Step 1: Determine pattern source
 
-Two modes are supported in v1.0:
+Two modes are supported:
 
 1. **User-described:** the invoking prompt includes a description of the pattern. Skip to Step 2A.
 2. **Inferred from recent fix:** the session has a recent edit (in conversation context or from `git log -p -1`). Use AskUserQuestion to confirm. Go to Step 2B.
@@ -80,7 +82,7 @@ Options:
 - "Cancel". Stop.
 ```
 
-A planned v1.1 mode (catalog selection from a built-in pattern library) is not yet available.
+See § Deferred to v1.1+ for the planned catalog-selection mode.
 
 ---
 
@@ -171,7 +173,7 @@ For each match, regardless of how it was found:
 1. **Read the file** at the match location (Read tool), at minimum 20 lines around the match. Multi-platform code may need a wider window to capture surrounding `#if` blocks.
 
 2. **Check for known intentional usages.**
-   - In v1.0, this is in-context judgment by Claude. Common intentional uses (e.g., `try?` in test code where failure is acceptable, force-unwrap of an IBOutlet) are classified as OK. A future v1.1 may add a `known-intentional.yaml` file the user can populate.
+   - This is in-context judgment by Claude. Common intentional uses (e.g., `try?` in test code where failure is acceptable, force-unwrap of an IBOutlet) are classified as OK. See § Deferred to v1.1+ for the planned `known-intentional.yaml` suppression file.
 
 3. **Classify** as one of:
    - **BUG:** matches the anti-pattern, correctness issue confirmed in this context.
@@ -185,7 +187,7 @@ Classify each match individually. Do not batch-judge a directory or file.
 
 ## Step 5: Generate report
 
-Write the report directly to `.agents/research/YYYY-MM-DD-bug-echo-<slug>.md` using the Write tool. The slug is a short kebab-case description of the pattern.
+Write the report directly to `<output_dir>/YYYY-MM-DD-bug-echo-<slug>.md` using the Write tool, where `<output_dir>` is the path Pre-flight Step 3 resolved (default `.agents/research/`, or the `output=<path>` override from the invoking prompt). The slug is a short kebab-case description of the pattern.
 
 ### Report format
 
@@ -270,7 +272,7 @@ For each REVIEW match:
 - `path/to/file.swift:[line]` - [why context is unclear]
 ```
 
-The report is human-readable and self-contained. A future v1.1 may add a JSON sidecar for downstream skill chaining (e.g., feeding findings into `safe-refactor`).
+The report is human-readable and self-contained. See § Deferred to v1.1+ for the planned JSON sidecar that would enable downstream skill chaining (e.g., feeding findings into `safe-refactor`).
 
 ---
 
@@ -355,6 +357,23 @@ bug-prospector and bug-echo cover opposite halves of the bug-finding loop. bug-e
 
 ---
 
+## Metadata keys
+
+The frontmatter declares two metadata keys for cross-skill coordination across Coffee & Code's audit family (bug-prospector, radar-suite, workflow-audit, unforget):
+
+- **`tier`** — where the skill operates in a typical workflow.
+  - `execution` (used by bug-echo) — runs in response to a concrete event (a fix landed, a release approaches). Produces an artifact (a report, a commit) the user acts on directly.
+  - `planning` — runs before an event to inform a decision (e.g., bug-prospector's forward-looking lenses, unforget's deferred-work survey).
+  - `review` — runs over a finished artifact to grade or audit it (e.g., radar-suite's capstone, app-store-code-review).
+
+- **`category`** — the domain the skill targets.
+  - `debugging` (used by bug-echo) — finds bugs, traces causes, or generalizes fixes.
+  - Other current values in the family: `architecture`, `release-prep`, `documentation`, `ui-audit`, `data-model`.
+
+These keys are descriptive metadata only — no router currently reads them at activation time. They exist so users browsing multiple companion skills can recognize the workflow stage at a glance. If a future router or skill-family index starts reading them, the canonical list lives in the radar-suite README.
+
+---
+
 ## Deferred to v1.1+
 
 These features are documented for future releases:
@@ -362,4 +381,4 @@ These features are documented for future releases:
 - **JSON sidecar:** machine-readable output alongside the Markdown report, for chaining into downstream skills.
 - **Recurrence detection:** comparing the new report against prior reports in `.agents/research/` to detect recurring patterns and suggest architectural fixes.
 - **`known-intentional.yaml` user file:** explicit suppression of patterns the user has confirmed are intentional, so they don't surface again.
-- **Multi-language pattern construction beyond Swift:** the v1.0 inference works for any language (regex from diff is language-neutral), but v1.1 may add language-specific tuning.
+- **Multi-language pattern construction beyond Swift:** the current inference works for any language (regex from diff is language-neutral), but a future release may add language-specific tuning.

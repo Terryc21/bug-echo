@@ -155,7 +155,7 @@ If `ast-grep` is on PATH, the skill detects it and uses it automatically. To ins
 
 ## Output format
 
-Reports go to `.agents/research/YYYY-MM-DD-bug-echo-*.md` in your project. Standard format across the radar/audit ecosystem:
+Reports go to `.agents/research/YYYY-MM-DD-bug-echo-*.md` in your project by default. The `.agents/research/` directory is a convention shared with radar-suite, bug-prospector, and other Coffee & Code audit skills; if your project doesn't use it, the skill creates it. Override the location by passing `output=<path>` in the invoking prompt (e.g., `/bug-echo output=docs/audits/`). Standard format across the radar/audit ecosystem:
 
 - File and line citations for every claim
 - 9-column rating table: #, Finding, Urgency, Risk: Fix, Risk: No Fix, ROI, Blast Radius, Fix Effort, Status. The Status column reads `Open` on first display and updates to `Fixed`, `Deferred`, or `Skipped` after the guided-fix session in Step 6.

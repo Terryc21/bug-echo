@@ -1,16 +1,16 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "bug-echo",
-  "description": "After you fix a bug, find other instances of the same pattern in the codebase. The third stage of the post-fix sweep workflow.",
+  "description": "Find sibling instances of a bug you just fixed. Third stage of the post-fix sweep workflow.",
   "owner": {
     "name": "Terry Nyberg"
   },
   "plugins": [
     {
       "name": "bug-echo",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "source": "./",
-      "description": "After fixing a bug, finds and rates other instances of the same anti-pattern. Self-validates the constructed pattern against the pre-fix file before scanning. Each match is classified individually as BUG / OK / REVIEW.",
+      "description": "After fixing a bug, finds and rates other instances of the same anti-pattern. Self-validates the constructed pattern against the pre-fix file before scanning. Each match is classified individually as BUG / WATCH / OK / REVIEW.",
       "author": {
         "name": "Terry Nyberg"
       },

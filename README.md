@@ -17,7 +17,7 @@ Built while shipping [Stuffolio](https://stuffolio.app), an iOS/macOS app curren
 - **Install:** Two `/plugin` commands in Claude Code; then `/bug-echo` is available in any project.
 - **Try first:** After your next bug fix, run `/bug-echo`. It reads the diff, self-validates the inferred pattern, and scans in ~2 minutes on a typical Swift codebase.
 - **Example output:** [a real sibling-bug scan on Stuffolio](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). Also: [describe-mode example on TypeScript](skills/bug-echo/examples/describe-mode-await-in-forEach.md).
-- **Maturity:** v1.0.0; used through real App Store submission cycles; works on any language for pattern construction, with platform-conditional handling currently Swift-specific.
+- **Maturity:** v1.1.0; used through real App Store submission cycles; works on any language for pattern construction, with platform-conditional handling currently Swift-specific.
 
 ## What bug-echo is for vs what linters are for
 
@@ -233,7 +233,7 @@ All free, all Apache 2.0, all built while shipping Stuffolio.
 
 ## Status
 
-Current version: 1.0.0. Built primarily for Swift/SwiftUI. The pattern construction is language-agnostic; the platform-conditional handling is currently Swift-specific.
+Current version: 1.1.0. Built primarily for Swift/SwiftUI. The pattern construction is language-agnostic; the platform-conditional handling is currently Swift-specific.
 
 Planned for v1.1: a built-in catalog mode for common Swift/SwiftUI anti-patterns (run when there's no recent fix to infer from), JSON sidecar output for chaining into downstream skills, recurrence detection across prior reports (catches bug classes that keep returning despite individual fixes), and a `known-intentional.yaml` user file for explicit suppression of patterns the user has confirmed are not bugs.
 

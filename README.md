@@ -1,6 +1,6 @@
 # bug-echo
 
-![Last commit](https://img.shields.io/github/last-commit/Terryc21/bug-echo) ![Stars](https://img.shields.io/github/stars/Terryc21/bug-echo?style=flat) ![Issues](https://img.shields.io/github/issues/Terryc21/bug-echo) ![License](https://img.shields.io/github/license/Terryc21/bug-echo) ![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet)
+![Version](https://img.shields.io/github/v/tag/Terryc21/bug-echo?label=version) ![Last commit](https://img.shields.io/github/last-commit/Terryc21/bug-echo) ![Stars](https://img.shields.io/github/stars/Terryc21/bug-echo?style=flat) ![Issues](https://img.shields.io/github/issues/Terryc21/bug-echo) ![License](https://img.shields.io/github/license/Terryc21/bug-echo) ![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet)
 
 **A Claude Code skill that runs after a fix lands, infers the anti-pattern from your diff, validates the pattern against the pre-fix file, and scans the rest of the codebase for sibling instances. Each match is read in context and classified BUG / OK / REVIEW.**
 
@@ -10,6 +10,12 @@ bug-echo and pattern-based linters are complementary, not competitive: linters c
 
 Built while shipping [Stuffolio](https://stuffolio.app), an iOS/macOS app currently at build 33. Free, open source, Apache 2.0.
 
+*~7 min read · scan the TL;DR if you only have 30 seconds*
+
+## Newer to Claude Code?
+
+A **skill** is a markdown file Claude Code knows how to run. When you type `/bug-echo` after a bug fix, Claude follows the instructions in this skill, reads your diff, scans for sibling patterns, and writes you a classified report. You don't have to memorize anything — the skill tells Claude what to do, you read the report.
+
 ## TL;DR
 
 - **What:** A Claude Code skill that runs *after* a bug fix, infers the anti-pattern from the diff, and scans the codebase for sibling instances. Each match classified BUG / OK / REVIEW with file:line citations.
@@ -17,6 +23,7 @@ Built while shipping [Stuffolio](https://stuffolio.app), an iOS/macOS app curren
 - **Install:** Two `/plugin` commands in Claude Code; then `/bug-echo` is available in any project.
 - **Try first:** After your next bug fix, run `/bug-echo`. It reads the diff, self-validates the inferred pattern, and scans in ~2 minutes on a typical Swift codebase.
 - **Example output:** [a real sibling-bug scan on Stuffolio](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). Also: [describe-mode example on TypeScript (synthesized)](skills/bug-echo/examples/describe-mode-await-in-forEach.md).
+- **See it work:** [Real example: caught a 2-week-old sibling bug in 2 minutes](#a-worked-example).
 - **Maturity:** v1.1.1; used through real App Store submission cycles; works on any language for pattern construction, with platform-conditional handling currently Swift-specific.
 
 ## What bug-echo is for vs what linters are for
@@ -99,7 +106,18 @@ The expected loop is short:
 
 You can also invoke the skill in **describe mode** (`/bug-echo "<pattern description>"`) when there's no recent diff. Useful for hypothesis-driven sweeps, for fixes whose diff is too noisy to infer from cleanly, or when the bug is conceptual ("anywhere we use `Task { ... }` inside a SwiftUI view body without `[weak self]`").
 
-## A worked example
+## Scoping a run
+
+bug-echo's scope is determined by **which pattern it's scanning for**, not by a file path. The skill always scans the whole repo (Grep + Glob across all source files); the question is how the pattern gets constructed.
+
+| Goal | Command |
+|---|---|
+| Sweep for siblings of the bug you just fixed | `/bug-echo` (after `git commit` or `git add`) |
+| Hypothesis-driven sweep (no recent fix) | `/bug-echo "<pattern description>"` |
+| Sweep but write the report elsewhere | `/bug-echo output=docs/audits/` |
+| Sweep with explicit AST-grep precision | `/bug-echo --ast-grep` (auto-detected if `ast-grep` is on PATH) |
+
+**Fresh vs prior history.** Every bug-echo run is fresh by design — the skill re-reads the diff (or the description), re-validates the inferred pattern against the pre-fix file, and re-scans the codebase. There's no cache of previous runs and no resume mode. Prior reports live in `.agents/research/` and can be diffed by hand, but the skill won't auto-skip findings it flagged last time. This is deliberate: if the pattern is real, finding it again on the next run is a feature, not noise — it tells you the sibling never got fixed. A "recurrence detection across prior reports" mode is planned for a future release; today, you compare reports manually.
 
 I fixed a SwiftUI captured-`self` staleness bug. Save handler called `dismiss()` on macOS inline in a `NavigationSplitView` — which closes the host window. The bug was in this line, repeated in two slightly different shapes:
 
@@ -218,29 +236,28 @@ The shape is **surface → verify → generalize**: confirm the issue is real an
 
 A real chain example: an iPhone-only crash deferred for a month was marked Fixed by `unforget`, then `radar-suite focus on collapsibleSectionsStack` reported the fix had actually shipped weeks earlier in two specific commits and the ledger was stale. Closed as Fixed. `bug-echo "VStack with 12+ if-conditional children in one scope"` then found one BUG (a list-row view with 16 conditional children) and three WATCH sites at 10-12. Fixed the BUG with the same split pattern. Total time ~90 minutes.
 
-## Other Claude Code skills
-
-Companion tools built on the same shipping-real-software loop:
-
-- [**bug-prospector**](https://github.com/Terryc21/bug-prospector) — runs *before* a fix; 7-lens forward-looking audit. Companion skill.
-- [**radar-suite**](https://github.com/Terryc21/radar-suite) — 6 audit skills for iOS/macOS Swift codebases. Covers data models, time-bomb code that fails on aged data, UI navigation, backup/restore round-trips, visual quality, and a capstone that aggregates the rest.
-- [**workflow-audit**](https://github.com/Terryc21/workflow-audit) — 5-layer audit of SwiftUI user flows. Finds dead ends, dismiss traps, unwired features, and platform parity gaps.
-- [**tutorial-creator**](https://github.com/Terryc21/tutorial-creator) — turns a file from your project into an annotated tutorial with vocabulary tracking, pre/post tests, and gap analysis. Works for any language.
-- [**unforget**](https://github.com/Terryc21/unforget) — consolidates deferred work (paused plans, audit findings, observed bugs) into one structured file.
-- [**prompter**](https://github.com/Terryc21/prompter) — rewrites your Claude Code prompt for clarity before acting.
-
-All free, all Apache 2.0, all built while shipping Stuffolio.
-
 ## Status
 
 Current version: 1.1.1. Built primarily for Swift/SwiftUI. The pattern construction is language-agnostic; the platform-conditional handling is currently Swift-specific.
 
-Planned for v1.1: a built-in catalog mode for common Swift/SwiftUI anti-patterns (run when there's no recent fix to infer from), JSON sidecar output for chaining into downstream skills, recurrence detection across prior reports (catches bug classes that keep returning despite individual fixes), and a `known-intentional.yaml` user file for explicit suppression of patterns the user has confirmed are not bugs.
+**Planned for v1.2+:** a built-in catalog mode for common Swift/SwiftUI anti-patterns (run when there's no recent fix to infer from), JSON sidecar output for chaining into downstream skills, recurrence detection across prior reports (catches bug classes that keep returning despite individual fixes), and a `known-intentional.yaml` user file for explicit suppression of patterns the user has confirmed are not bugs.
+
+## Sibling skills
+
+- [**bug-prospector**](https://github.com/Terryc21/bug-prospector) — runs *before* a fix; 7-lens forward-looking audit. Companion skill.
+- [**workflow-audit**](https://github.com/Terryc21/workflow-audit) — 5-layer SwiftUI flow audit
+- [**unforget**](https://github.com/Terryc21/unforget) — one-file deferred-work ledger
+- [**radar-suite**](https://github.com/Terryc21/radar-suite) — 6-skill iOS audit family
+- [**prompter**](https://github.com/Terryc21/prompter) — prompt rewriting before execution
+- [**skill-reviewer**](https://github.com/Terryc21/skill-reviewer) — candid reviews of other Claude Code skills
+- [**tutorial-creator**](https://github.com/Terryc21/tutorial-creator) — annotated tutorials from your codebase
+
+## Author
+
+Terry Nyberg, [Coffee & Code LLC](https://stuffolio.app/). If bug-echo catches a real bug for you, [a coffee](https://buymeacoffee.com/stuffolio) is appreciated. Issue reports about what worked or didn't are more useful.
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/stuffolio)
 
 ## License
 
 Apache 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
-
-## Author
-
-Terry Nyberg, [Coffee & Code LLC](https://stuffolio.app/). If bug-echo catches a real bug for you, [a coffee](https://buymeacoffee.com/stuffolio) is appreciated. Issue reports about what worked or didn't are even more useful.

@@ -245,9 +245,9 @@ Current version: 1.1.1. Built primarily for Swift/SwiftUI. The pattern construct
 ## Sibling skills
 
 - [**bug-prospector**](https://github.com/Terryc21/bug-prospector) — runs *before* a fix; 7-lens forward-looking audit. Companion skill.
-- [**workflow-audit**](https://github.com/Terryc21/workflow-audit) — 5-layer SwiftUI flow audit
+- [**workflow-audit**](https://github.com/Terryc21/workflow-audit) — 5-layer SwiftUI behavioral flow audit
 - [**unforget**](https://github.com/Terryc21/unforget) — one-file deferred-work ledger
-- [**radar-suite**](https://github.com/Terryc21/radar-suite) — 6-skill iOS audit family
+- [**radar-suite**](https://github.com/Terryc21/radar-suite) — 6-skill suite tracing user behavior paths through the app (iOS + macOS)
 - [**prompter**](https://github.com/Terryc21/prompter) — prompt rewriting before execution
 - [**skill-reviewer**](https://github.com/Terryc21/skill-reviewer) — candid reviews of other Claude Code skills
 - [**tutorial-creator**](https://github.com/Terryc21/tutorial-creator) — annotated tutorials from your codebase

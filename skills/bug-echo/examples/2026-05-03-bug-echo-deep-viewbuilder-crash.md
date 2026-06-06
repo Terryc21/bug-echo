@@ -1,17 +1,27 @@
 # bug-echo Report: Deep @ViewBuilder type-tree crash (SubstGenericParametersFromMetadata)
 
 > [!NOTE]
-> This is a **real bug-echo report** generated from a Stuffolio session on 2026-05-03. It demonstrates the full output format and shows the post-fix-sweep workflow in practice: a fix had already shipped a month earlier (collapsibleSectionsStack, commits f01a2b82 + fbefd970), so the ledger row was retroactively closed via radar-suite verification, then bug-echo was run to find unfired echoes of the same pattern elsewhere in the codebase. It found one BUG (RMARow at the same density as the original crash, fixed in the same session) and three WATCH sites at sub-threshold density.
+> This example demonstrates the **v1.2.0 full report** output shape and shows the post-fix-sweep workflow: a fix had already shipped a month earlier (collapsibleSectionsStack, commits f01a2b82 + fbefd970), so the ledger row was retroactively closed via radar-suite verification, then bug-echo was run to find unfired echoes of the same pattern elsewhere in the codebase.
+>
+> The recon scout (Step 2.5) found 4 candidates — which falls into the v1.2.0 inline bucket (1-5). The user invoked with `write-report` to override into full mode because the pattern is being tracked for ongoing surveillance across releases (the WATCH findings record sub-threshold sites worth re-checking next time the codebase grows). The "track this pattern across releases" override is a first-class condition in v1.2.0 Step 2.5.
 
 **Date:** 2026-05-03
-**Pattern source:** user-described
+**Pattern source:** user-described (multi-condition; see conditions form in Pattern section below)
 **Scan tool:** custom Python brace-depth analyzer over Sources/**/*.swift (regex-based grep alone cannot count scope-direct conditionals; ast-grep not installed)
 **Files scanned:** all `.swift` under `Sources/` (~700 files)
+**Recon scout:** 4 candidates (bucket: 1-5 inline; user overrode to full via `write-report` for cross-release tracking)
 **Pattern validated:** N/A (user-described). The pattern was independently confirmed against the historical fix at `EnhancedItemDetailView+Sections.swift:920-1022` and commits `f01a2b82` + `fbefd970`, both of which split a single VStack with 16+ conditional children into 3 `@ViewBuilder` groups.
 
 ## Pattern
 
-**Anti-pattern:** A SwiftUI container scope (VStack / HStack / Group / Form / List / ScrollView / LazyVStack / LazyHStack) holds many `if`-conditional or `if let`-conditional or `switch` child views in the same lexical scope. Each conditional becomes part of the parent's generic-type tree (`TupleView<(_ConditionalContent<X, Y>, _ConditionalContent<...>, ...)>`). At ~16+ branches in one resolution scope, the Swift runtime hits `SubstGenericParametersFromMetadata` failure during view metadata resolution. The crash reproduces only on physical iOS devices (the simulator has a slower path that masks it).
+**Conditions form** (v1.2.0; the user articulated this multi-condition shape up front so the brace-depth analyzer scanned for the conjunction, not any single condition):
+
+- **Condition 1:** SwiftUI container scope — VStack / HStack / Group / Form / List / ScrollView / LazyVStack / LazyHStack.
+- **Condition 2:** Holds ≥10 `if`, `if let`, or `switch` children at the immediate lexical scope (not nested inside child views).
+- **Condition 3:** All children resolve into the same parent type tree (no `@ViewBuilder` split scope between the container and the conditionals).
+- **Consumer impact:** At ~16+ branches in one resolution scope, the Swift runtime hits `SubstGenericParametersFromMetadata` failure during view metadata resolution. The crash reproduces only on physical iOS devices (the simulator has a slower path that masks it).
+
+**Anti-pattern (prose form for the report):** A SwiftUI container scope holds many `if`-conditional or `if let`-conditional or `switch` child views in the same lexical scope. Each conditional becomes part of the parent's generic-type tree (`TupleView<(_ConditionalContent<X, Y>, _ConditionalContent<...>, ...)>`). At ~16+ branches in one resolution scope, the runtime crashes.
 
 **Correct pattern:** Split the conditional children into 2-3 `@ViewBuilder` computed properties. Each subview gets its own type-resolution scope, halving (or thirding) the depth in any single tree. Document the split with a comment so a future maintainer doesn't re-flatten it during a refactor.
 

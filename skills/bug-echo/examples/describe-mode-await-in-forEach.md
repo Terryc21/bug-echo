@@ -1,12 +1,13 @@
 # bug-echo Report: `await` inside `Array.forEach` (describe mode)
 
 > [!NOTE]
-> This is a **synthesized example** of bug-echo's describe-mode workflow on a TypeScript codebase. The skill's other example file in this directory shows inferred-from-diff mode against a real Stuffolio Swift codebase; this one shows describe mode (the user types out the pattern instead of pointing at a recent fix) on a non-Swift project. File paths and report shape are illustrative.
+> This is a **synthesized example** of bug-echo's describe-mode workflow on a TypeScript codebase under v1.2.0. The skill's other example file in this directory shows inferred-from-diff mode against a real Stuffolio Swift codebase; this one shows describe mode (the user types out the pattern instead of pointing at a recent fix) on a non-Swift project. File paths and report shape are illustrative.
 
 **Date:** 2026-04-22
 **Pattern source:** user-described
 **Scan tool:** ast-grep over `src/**/*.{ts,tsx}` (project: a Node.js + TypeScript backend)
 **Files scanned:** 412 TypeScript files
+**Recon scout:** 6 candidates (bucket: 6+ full — `.agents/research/` file written per Step 5 default)
 **Pattern validated:** N/A (user-described)
 
 ---
@@ -25,6 +26,8 @@ is silently discarded because forEach ignores callback return values"
 ---
 
 ## Pattern
+
+> The user described this pattern in free-form prose rather than the v1.2.0 conditions form. The pattern is essentially single-shape (one syntactic structure `.forEach(async callback containing await)`) — the conditions form is reserved for multi-condition patterns where 2-3 distinct conditions must hold together. See the SKILL.md Step 2A for when to use which form.
 
 **Anti-pattern:** A function calls `.forEach((...) => { ... await ... ... })` (or its equivalent shapes — see search criterion below) and depends on the loop awaiting each iteration. Because `Array.prototype.forEach` does not return a Promise and discards each callback's return value, the `await`s do not block the loop. All iterations run their async work in parallel; the function after the loop continues without waiting.
 

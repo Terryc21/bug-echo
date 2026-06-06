@@ -4,7 +4,7 @@ description: 'After fixing a bug, find and rate other instances of the same patt
 license: Apache-2.0
 allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Agent]
 metadata:
-  version: 1.1.1
+  version: 1.2.0
   author: Terry Nyberg, Coffee & Code LLC
   tier: execution
   category: debugging
@@ -98,6 +98,17 @@ Summarize the pattern back to the user:
 **Platforms:** [iOS, iPadOS, macOS, watchOS, or "all"]
 ```
 
+**Conditions form (recommended for multi-condition patterns).** Many real bug shapes only fire when 2-3 conditions hold together. Asking the user to articulate them up front produces a sharper scan than free-form prose. Suggested form:
+
+```markdown
+**Condition 1:** [e.g., "Identifiable struct with `let id = UUID()`"]
+**Condition 2:** [e.g., "constructed inside a computed `var`/`func` returning `[T]`"]
+**Condition 3:** [e.g., "that array feeds a SwiftUI `ForEach` / `List` / `Picker`"]
+**Consumer impact:** [why the conditions together produce the bug]
+```
+
+A single-condition pattern (e.g., a deprecated API name) doesn't need this form. Free-form prose is fine. Use the conditions form when the user's description includes "and" twice or more, or when the pattern is shape-based rather than name-based.
+
 Confirm with AskUserQuestion (Yes scan now / Refine / Cancel) before proceeding to Step 3.
 
 ---
@@ -143,7 +154,41 @@ The validation step is non-negotiable. If you cannot construct a pattern that ma
 
 ---
 
+## Step 2.5: Recon scout (decide report shape)
+
+Before running the full scan + classify + rate + write ceremony, run the validated pattern once to count candidates. The count decides the response shape. This step prevents the most common over-spend in bug-echo runs: rendering a 200-line rated report on a pattern that turns out to be already localized.
+
+**Execute:**
+
+1. Run a single Grep with the validated pattern across the project's source tree (use the search scope from Step 2A or the file's directory from Step 2B). No classification yet — just count `file:line` matches.
+2. **Exclude the just-fixed site itself.** When in Step 2B inference mode, the original-fix file already has the fix applied; if the pattern is constructed from removed lines, it should produce 0 matches there. When in Step 2A described mode, no exclusion needed.
+3. Bucket the result:
+
+| Candidates | Report shape |
+|---|---|
+| **0** | Emit a one-line note in conversation: "No echoes found. Pattern appears localized to the original fix site." Do NOT write a `.agents/research/` report. Stop. |
+| **1-5** | Lightweight inline report. Classify each match in conversation using Step 4 rules. Render a single Issue Rating Table for confirmed BUGs. Skip the OK / REVIEW / WATCH sections unless something interesting appears. Do NOT write a `.agents/research/` file unless the user asks for one. |
+| **6+** | Full skill flow — proceed to Step 3 and write a `.agents/research/` report per Step 5. |
+
+**Why the buckets matter.** Across 18 real bug-echo runs on a 600-file Swift project, 3 found zero real bugs after the full ceremony and another 4 found 1-3. In those 7 cases (~39% of runs), the full `.agents/research/` write was over-spend — the report's structure carried more weight than the findings did. The recon-scout step matches output shape to actual signal.
+
+**When to override the bucket:**
+
+- The user explicitly asked for a written report (`/bug-echo write-report` or similar invocation). Always write the file.
+- The pattern is one the user wants to track across releases (multi-pass cleanup, sweep-style). Always write the file so the next run can reference it. Detect via Step 2A user description ("track this", "sweep", "we'll address in multiple passes") or via the user's prior reports in `.agents/research/` (already excluded as a finding source per Freshness rule, but discoverable for this purpose via `ls`).
+- The 1-5 bucket contains a finding the user describes as release-blocking. Promote that finding's writeup to a small report anyway.
+
+If you override, say which bucket the count fell into and why you wrote the report anyway.
+
+**State emitted to later steps:** `recon_candidate_count` (integer), `recon_report_mode` (`none` / `inline` / `full`). Steps 3-5 read these.
+
+---
+
 ## Step 3: Execute the scan
+
+> **Note for `recon_report_mode = none`:** skip Step 3-5 entirely. The recon scout already produced the answer. Emit the one-line "no echoes found" note and stop.
+>
+> **Note for `recon_report_mode = inline`:** the recon scout already produced the match list. Skip building file lists from scratch; just read each match site for classification (Step 4) and render a single inline rating table (Step 5 lightweight form). No file write.
 
 Run the validated pattern across the codebase.
 
@@ -187,9 +232,42 @@ Classify each match individually. Do not batch-judge a directory or file.
 
 ## Step 5: Generate report
 
+The report shape depends on `recon_report_mode` from Step 2.5:
+
+### `none` — no-echo note
+
+Emit ONE LINE in conversation. No file. Suggested template:
+
+```
+No echoes found for [pattern name]. Scanned [N] candidate sites against [search scope]; all are either the original-fix site or non-matches. Pattern appears localized.
+```
+
+Stop. Do not invoke Write.
+
+### `inline` — lightweight 1-5 finding report
+
+Render in conversation, not to a file. Single Issue Rating Table with one row per BUG. Skip OK/REVIEW/WATCH sections unless something interesting appears (and if it does, document it inline, not in a separate section). Suggested shape:
+
+```markdown
+## bug-echo: [pattern name] — [N] echo(es) found
+
+| # | Finding | Urgency | Risk: Fix | Risk: No Fix | ROI | Blast | Effort | Status |
+|---|---|---|---|---|---|---|---|---|
+| 1 | ... | ... | ... | ... | ... | ... | ... | Open |
+
+**Detail:**
+- **[N]. [short description]** at `path/file.swift:[line]`. [Why this is a bug, 1-2 sentences.] Suggested fix: [1-2 sentences.]
+
+**Recon classifications:** [N] BUG, [N] OK (cite line numbers if relevant), [N] REVIEW.
+```
+
+After rendering, proceed to Step 6 (follow-up).
+
+### `full` — full audit report (6+ candidates)
+
 Write the report directly to `<output_dir>/YYYY-MM-DD-bug-echo-<slug>.md` using the Write tool, where `<output_dir>` is the path Pre-flight Step 3 resolved (default `.agents/research/`, or the `output=<path>` override from the invoking prompt). The slug is a short kebab-case description of the pattern.
 
-### Report format
+### Report format (full mode)
 
 ```markdown
 # bug-echo Report: [Pattern Name]
@@ -324,7 +402,8 @@ Re-display the rating table at the end of the fix session with all Status column
 | Diff parsing fails because the recent edit is not a bug fix (rename, comment change, formatting) | Pattern self-validation will fail. Fall back to Step 2A and ask the user to describe the pattern manually. |
 | Too many matches | Narrow the scope by passing a directory in the user's pattern description (e.g., `Sources/Features/Auth/`). |
 | AST-grep not installed | Use regex via the Grep tool. Install with `brew install ast-grep` for higher precision on Swift if precision matters. |
-| All matches classified OK | Pattern is localized to the original file. Report zero BUG findings and stop. That's a successful run, not a failed one. |
+| All matches classified OK | Pattern is localized to the original file. Report zero BUG findings and stop. That's a successful run, not a failed one. Note: Step 2.5's recon scout should now catch this case earlier with the `none` report mode. |
+| Recon scout shows 0 candidates but I'm sure there are siblings | Your search pattern is too narrow. Broaden it (e.g., drop a suffix qualifier, switch from `let` to `let\|var`) and re-run Step 2.5. If still 0, the pattern was already localized to the just-fixed site. |
 | Sub-agent dispatch fails | Fall back to sequential scan in the main agent. Slower but functional. |
 | Mixed intentional and buggy matches | Classify each individually using Step 4 rules. Do not batch-judge. |
 | Pattern matches across `#if os(...)` boundaries | Honor platform conditionals during classification. Code inside the wrong `#if` block is OK, not BUG. |
@@ -374,7 +453,7 @@ These keys are descriptive metadata only — no router currently reads them at a
 
 ---
 
-## Deferred to v1.1+
+## Deferred to v1.3+
 
 These features are documented for future releases:
 
@@ -382,3 +461,8 @@ These features are documented for future releases:
 - **Recurrence detection:** comparing the new report against prior reports in `.agents/research/` to detect recurring patterns and suggest architectural fixes.
 - **`known-intentional.yaml` user file:** explicit suppression of patterns the user has confirmed are intentional, so they don't surface again.
 - **Multi-language pattern construction beyond Swift:** the current inference works for any language (regex from diff is language-neutral), but a future release may add language-specific tuning.
+
+## v1.2.0 (2026-06-06)
+
+- **Recon scout (Step 2.5):** new pre-flight count between pattern validation and full scan. Buckets candidate count into 0 / 1-5 / 6+ and matches report shape to actual signal. Catches the case where the original fix was already localized (one-line note in conversation, no `.agents/research/` write) and the case where there are 1-5 sibling instances (lightweight inline report). Reserves the full file-write ceremony for 6+ candidates where the structured report carries its weight. Origin: 18-run retrospective on a 600-file Swift codebase showed ~39% of runs would benefit from a lighter-weight report shape. See [recon-scout-rationale.md](examples/recon-scout-rationale.md) for the full evidence.
+- **Conditions form in Step 2A:** suggested form for describing multi-condition pattern shapes (e.g., "Identifiable struct + ephemeral constructor + ForEach consumer"). Optional; free-form prose still works. Helps users articulate patterns that only fire when 2-3 conditions hold together — the most common shape for false-positive-prone bugs.

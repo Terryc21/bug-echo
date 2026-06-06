@@ -24,7 +24,8 @@ A **skill** is a markdown file Claude Code knows how to run. When you type `/bug
 - **Try first:** After your next bug fix, run `/bug-echo`. It reads the diff, self-validates the inferred pattern, and scans in ~2 minutes on a typical Swift codebase.
 - **Example output:** [a real sibling-bug scan on Stuffolio](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). Also: [describe-mode example on TypeScript (synthesized)](skills/bug-echo/examples/describe-mode-await-in-forEach.md).
 - **See it work:** [Real example: caught a 2-week-old sibling bug in 2 minutes](#a-worked-example).
-- **Maturity:** v1.1.1; used through real App Store submission cycles; works on any language for pattern construction, with platform-conditional handling currently Swift-specific.
+- **Maturity:** v1.2.0; used through real App Store submission cycles; works on any language for pattern construction, with platform-conditional handling currently Swift-specific.
+- **New in v1.2.0:** [recon scout](skills/bug-echo/examples/recon-scout-rationale.md) — the skill now counts candidates before running the full ceremony and matches report shape to actual signal (0 / 1-5 / 6+ buckets). Cuts ~39% of historical runs to a one-line note or inline rated table instead of a full file write.
 
 ## What bug-echo is for vs what linters are for
 

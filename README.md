@@ -8,7 +8,7 @@
 
 bug-echo and pattern-based linters are complementary, not competitive: linters check every file against pre-built rules on every save; bug-echo runs once per fix to scan for siblings of a bug that just demonstrated itself. **A thorough audit uses both.**
 
-Built while shipping [Stuffolio](https://stuffolio.app), an iOS/macOS app currently at build 33. Free, open source, Apache 2.0.
+Built while shipping [Stuffolio](https://stuffolio.app), an iOS/macOS app, through real App Store submission cycles. bug-echo itself is free, open source, Apache 2.0.
 
 *~7 min read · scan the TL;DR if you only have 30 seconds*
 

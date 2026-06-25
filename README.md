@@ -186,7 +186,7 @@ Reports go to `.agents/research/YYYY-MM-DD-bug-echo-*.md` in your project by def
 The 9-column rating table needs a wide terminal (~180 chars) to render as a horizontal table. In a narrower window the cells stack vertically and the report becomes harder to scan. For best readability:
 
 - **GitHub or GitLab**: open the report file in the web UI; tables render natively.
-- **Markdown viewer apps**: [Bear](https://bear.app/) (Mac/iOS, free tier; import .md as a note), [MacDown](https://macdown.uranusjr.com/) (Mac, free), [Marked 2](https://marked2app.com/) (Mac, paid), [Obsidian](https://obsidian.md/) or [Typora](https://typora.io/) (cross-platform).
+- **Markdown viewer apps**: [Bear](https://bear.app/) (Mac/iOS, free tier; import .md as a note), [MacDown](https://macdown.uranusjr.com/) (Mac, free), [Marked 2](https://marked2app.com/) (Mac, paid) or [iA Writer](https://ia.net/writer) (Mac/iOS/Windows/Android, paid), [Obsidian](https://obsidian.md/) or [Typora](https://typora.io/) (cross-platform).
 - **VS Code**: built-in Markdown Preview (cmd-shift-V on Mac).
 
 If tables look broken in your terminal (rendered as vertical blocks instead of horizontal rows), widen the window or use one of the apps above.

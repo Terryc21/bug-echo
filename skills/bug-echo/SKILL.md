@@ -569,7 +569,7 @@ Spec hardening for the large-codebase scan path. No new user-facing capability �
 
 ## v1.3.0 (2026-07-21)
 
-Large-codebase hardening. All three additions are threshold-gated branches; the sub-500-file common path is unchanged from v1.2.0. See the new § Scale invariants (Pre-flight) for the guarantee.
+Large-codebase hardening. All three additions are threshold-gated branches; the sub-500-file common path is unchanged from v1.2.0. See the new § Scale invariants (Pre-flight) for the guarantee. Rationale and traced examples for the whole v1.3.x hardening arc (through 1.3.2): [large-codebase-hardening-rationale.md](examples/large-codebase-hardening-rationale.md).
 
 - **Already-swept exclusion (Step 2.5):** on a large codebase swept across multiple sessions, sites fixed-and-committed in a prior bug-echo run no longer resurface as fresh candidates. Gated to fire only at ≥6 candidates *and* when the repo has prior `bug-echo:` commits; below the gate it is a single empty `git log` call. Cross-references git commit history (ground truth of what was fixed), capped at the 50 most recent `bug-echo:` commits so cost is bounded by commit count, not calendar time. Re-reads live source before excluding, so a reintroduced pattern is still caught — git only says *where to look*, never "already fixed."
 - **High-count tighten offer (Step 2.5):** when a validated pattern returns ≥25 candidates (an absolute threshold, not relative to repo size), offers to tighten the pattern before classifying, rather than grinding through hundreds of mostly-OK sites. Directly addresses the "heavily overloaded with false positives" limit. Below 25, never shown.

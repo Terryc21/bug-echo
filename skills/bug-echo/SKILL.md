@@ -4,7 +4,7 @@ description: 'After fixing a bug, find and rate other instances of the same patt
 license: Apache-2.0
 allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Agent]
 metadata:
-  version: 1.3.1
+  version: 1.3.2
   author: Terry Nyberg, Coffee & Code LLC
   tier: execution
   category: debugging
@@ -133,6 +133,8 @@ This is bug-echo's distinctive mode. Execute these steps directly using Bash and
    - Unstaged changes: `git diff` via Bash.
    - Most recent commit: `git log -p -1` via Bash.
    Use the first non-empty result. If all are empty, fall back to Step 2A.
+
+   **Guard against inferring from bug-echo's own fix commit.** This applies *only* when the selected source is the most recent commit (`git log -p -1`) — staged and unstaged diffs are genuine new work and are never blocked. Step 6 commits applied fixes with a subject line starting `bug-echo:`. If a user runs `/bug-echo`, applies fixes, commits via that flow, then runs `/bug-echo` again with no intervening real fix, `git log -p -1` would hand back bug-echo's own fix commit — and inferring a pattern from it just re-derives the pattern those fixes already resolved. To prevent this degenerate self-referential loop: before parsing the most-recent-commit diff, run `git log -1 --format=%s` via Bash. If the subject starts with `bug-echo:`, do NOT infer from it. Skip to Step 2A (described mode) and explain briefly: "The most recent commit is a bug-echo fix commit — inferring from it would just re-derive the pattern it already fixed. Describe the pattern you want scanned, or point me at a different fix (e.g., `HEAD~1`)." This check is universal (not size-gated) and inert unless HEAD is a bug-echo commit.
 
 2. **Parse the diff.**
    - Lines starting with `-` (and not `---`) are removed lines (the anti-pattern).
@@ -551,6 +553,12 @@ These features are documented for future releases:
 - **Full recurrence detection:** comparing the new report against prior `.agents/research/` reports to detect recurring patterns and suggest architectural fixes. (v1.3.0 shipped the conservative git-history slice of this — the already-swept exclusion in Step 2.5 — which reads commit history, not prior reports. The deferred version is the report-cross-referencing analysis.)
 - **`known-intentional.yaml` user file:** explicit suppression of patterns the user has confirmed are intentional, so they don't surface again.
 - **Multi-language pattern construction beyond Swift:** the current inference works for any language (regex from diff is language-neutral), but a future release may add language-specific tuning.
+
+## v1.3.2 (2026-07-21)
+
+Correctness guard against a self-referential inference loop. Universal (not size-gated) and inert unless it applies.
+
+- **Guard against inferring from bug-echo's own fix commit (Step 2B):** when the diff source falls back to the most recent commit (`git log -p -1`) and that commit's subject starts with `bug-echo:` (the prefix Step 6 uses for applied-fix commits), Step 2B no longer infers a pattern from it — doing so would just re-derive the pattern those fixes already resolved. It now falls back to Step 2A (described mode) with a short explanation and a pointer to name a different fix. Applies only to the most-recent-commit source; staged and unstaged diffs are genuine new work and are never blocked.
 
 ## v1.3.1 (2026-07-21)
 

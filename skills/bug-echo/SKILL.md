@@ -4,7 +4,7 @@ description: 'After fixing a bug, find and rate other instances of the same patt
 license: Apache-2.0
 allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Agent]
 metadata:
-  version: 1.2.0
+  version: 1.3.0
   author: Terry Nyberg, Coffee & Code LLC
   tier: execution
   category: debugging
@@ -61,7 +61,18 @@ Before any scanning work, verify the working environment is sane.
 
 ### Freshness rule
 
-Base all findings on the current source tree only. Do not read prior reports in `.agents/research/`, `scratch/`, or auto-memory caches as a source of findings. See § Deferred to v1.1+ for the planned recurrence-detection mode that would cross-reference prior reports.
+Base all findings on the current source tree only. Do not read prior reports in `.agents/research/`, `scratch/`, or auto-memory caches as a source of findings. See § Deferred to v1.3+ for the planned recurrence-detection mode that would cross-reference prior reports.
+
+### Scale invariants (protect the small-codebase path)
+
+bug-echo must run identically on a 20-file package and a 5,000-file app *on the common path*. Large-codebase handling is always a branch entered by an explicit threshold, never a tax on the default flow. Any future edit MUST preserve these invariants:
+
+1. **The sub-500-file scan path is untouched by scale logic.** File-count branching lives only in Step 3; a repo under 500 files scans directly and never enters sub-agent dispatch, dedup-across-batches, or any large-repo accommodation.
+2. **Count-gated features are inert below their threshold.** The already-swept exclusion (Step 2.5, gated ≥6 candidates + prior bug-echo commits) and the high-count tighten offer (Step 2.5, gated ≥25 candidates) must be no-ops below their gates. A small or first-ever run may make at most one cheap, empty `git log` call and must otherwise behave exactly as v1.2 did.
+3. **Thresholds are absolute, not relative to repo size.** The 25-match tighten offer keys off raw match count, not a fraction of files, so it never fires spuriously on a small codebase where a pattern legitimately repeats.
+4. **No feature promotes a large-codebase branch to the default.** Sub-agent dispatch, git-history reads, and pattern-tightening prompts are opt-in-by-threshold. Making any of them unconditional is a regression, not an enhancement.
+
+If you add scale handling, gate it and add it to this list. A change that makes the small-codebase path slower or more talkative has failed review regardless of what it does for large repos.
 
 ---
 
@@ -82,7 +93,7 @@ Options:
 - "Cancel". Stop.
 ```
 
-See § Deferred to v1.1+ for the planned catalog-selection mode.
+See § Deferred to v1.3+ for the planned catalog-selection mode.
 
 ---
 
@@ -161,14 +172,51 @@ Before running the full scan + classify + rate + write ceremony, run the validat
 **Execute:**
 
 1. Run a single Grep with the validated pattern across the project's source tree (use the search scope from Step 2A or the file's directory from Step 2B). No classification yet — just count `file:line` matches.
-2. **Exclude the just-fixed site itself.** When in Step 2B inference mode, the original-fix file already has the fix applied; if the pattern is constructed from removed lines, it should produce 0 matches there. When in Step 2A described mode, no exclusion needed.
-3. Bucket the result:
+2. **Exclude sites you already swept (large-codebase multi-pass guard).** On a big codebase you will often bug-echo the *same* anti-pattern across several sessions as you chip away at it. Sites fixed-and-committed in a prior bug-echo run should not resurface as fresh candidates.
+
+   **Gate — run this sub-step only when ALL of these hold:**
+   - `recon_candidate_count` from step 1 is **≥ 6** (below that, the bucket is already lightweight and the extra work is not worth it), AND
+   - `git log --grep="^bug-echo:" --oneline -1` via Bash returns at least one commit (i.e., this repo has prior bug-echo fix commits).
+
+   If either condition is false, **skip this sub-step entirely** — set `recon_swept_count = 0` and continue. On a small codebase, or a first-ever run, this is a single cheap `git log` call that returns empty and changes nothing.
+
+   **When the gate opens:**
+   - Read the file:line pairs touched by prior bug-echo commits: `git log --grep="^bug-echo:" --name-only --format="%H" -n 50` via Bash. Collect the set of files those commits modified. **Cap the walk at the 50 most recent `bug-echo:` commits** (the `-n 50` above): the cost of the walk is bounded by commit count, not calendar time, so it stays predictable no matter how long the project has used bug-echo. If more than 50 exist, note in the reconciliation line that older bug-echo commits were not cross-referenced — those sites simply get re-classified as fresh, which is safe (the worst case is a little redundant work, never a wrongly hidden bug).
+   - For each current candidate match, if its file appears in that set, re-read the match site (Read tool, 5-line window) and check whether the anti-pattern is still present. **Git history says the file was touched; only the live source says whether this specific line is still buggy.** Do not exclude on filename alone — a later edit may have reintroduced the pattern, and re-finding it is exactly the value.
+   - Exclude a candidate only when the prior-swept file *and* the current line no longer matches the anti-pattern. Count excluded sites as `recon_swept_count`.
+   - Subtract `recon_swept_count` from `recon_candidate_count` before bucketing in the next step. Report both numbers so the user sees the reconciliation (e.g., "9 raw matches, 3 already swept in prior bug-echo commits, 6 fresh").
+
+   This is the conservative, ground-truth-only slice of the deferred "recurrence detection" feature: it reads git commit history (authoritative record of what was fixed), never prior `.agents/research/` reports (which the Freshness rule forbids as a finding source).
+3. **Exclude the just-fixed site itself.** When in Step 2B inference mode, the original-fix file already has the fix applied; if the pattern is constructed from removed lines, it should produce 0 matches there. When in Step 2A described mode, no exclusion needed.
+4. Bucket the result:
 
 | Candidates | Report shape |
 |---|---|
 | **0** | Emit a one-line note in conversation: "No echoes found. Pattern appears localized to the original fix site." Do NOT write a `.agents/research/` report. Stop. |
 | **1-5** | Lightweight inline report. Classify each match in conversation using Step 4 rules. Render a single Issue Rating Table for confirmed BUGs. Skip the OK / REVIEW / WATCH sections unless something interesting appears. Do NOT write a `.agents/research/` file unless the user asks for one. |
 | **6+** | Full skill flow — proceed to Step 3 and write a `.agents/research/` report per Step 5. |
+
+**High-count guard (offer to tighten before classifying).** A pattern can pass self-validation (it matches the pre-fix line) yet still be too broad, returning a large match set that is mostly OK. Classifying hundreds of sites to confirm they are noise is the single most expensive way to run this skill.
+
+**Gate — trigger this offer only when BOTH hold:**
+- `recon_candidate_count` (after the already-swept exclusion in Execute step 2) is **≥ 25**, AND
+- the pattern is name-based or shape-based rather than an exact-once construct — i.e., a broad match is plausible. (A pattern built from a distinctive multi-token substring that happens to hit 25+ real sites is a legitimate big sweep, not noise. If uncertain, still offer; the user can decline in one keystroke.)
+
+The **25** threshold is absolute, not relative to codebase size. A 40-file project where a pattern legitimately appears 30 times should trigger the same offer as a 5,000-file one — the cost being avoided is *classifying 30 sites*, which is the same work regardless of repo size. Below 25, never show this; the classify step is cheap enough that interrupting the user is the worse trade.
+
+**When the gate opens**, use AskUserQuestion before proceeding to Step 3:
+
+```
+Question (header: "Breadth"): "[N] candidate sites match — enough that some are likely false positives. Tighten the pattern before I classify all [N]?"
+Options:
+- "Tighten first" (Recommended). Show me the current pattern; I'll narrow it (add a qualifier, require an adjacent token) and re-run the recon count.
+- "Classify all [N]". The breadth is expected; scan and classify everything.
+- "Sample first". Classify a 10-site sample across the match set; if the BUG rate is low, I'll suggest tightening then.
+```
+
+On "Tighten first": present the current regex/AST pattern, propose one or two narrower variants with a one-line rationale each, and on the user's pick re-run Execute steps 1-4 (recount, re-exclude swept, re-exclude the fix site, re-bucket) with the tighter pattern. On "Sample first": classify 10 matches spread across the file list; if fewer than ~20% are BUG, recommend tightening and re-offer.
+
+This guard directly addresses the "heavily overloaded with false positives" case in the README's Honest Limits, moving the tightening decision *before* the expensive per-site classification rather than after.
 
 **Why the buckets matter.** Across 18 real bug-echo runs on a 600-file Swift project, 3 found zero real bugs after the full ceremony and another 4 found 1-3. In those 7 cases (~39% of runs), the full `.agents/research/` write was over-spend — the report's structure carried more weight than the findings did. The recon-scout step matches output shape to actual signal.
 
@@ -218,7 +266,7 @@ For each match, regardless of how it was found:
 1. **Read the file** at the match location (Read tool), at minimum 20 lines around the match. Multi-platform code may need a wider window to capture surrounding `#if` blocks.
 
 2. **Check for known intentional usages.**
-   - This is in-context judgment by Claude. Common intentional uses (e.g., `try?` in test code where failure is acceptable, force-unwrap of an IBOutlet) are classified as OK. See § Deferred to v1.1+ for the planned `known-intentional.yaml` suppression file.
+   - This is in-context judgment by Claude. Common intentional uses (e.g., `try?` in test code where failure is acceptable, force-unwrap of an IBOutlet) are classified as OK. See § Deferred to v1.3+ for the planned `known-intentional.yaml` suppression file.
 
 3. **Classify** as one of:
    - **BUG:** matches the anti-pattern, correctness issue confirmed in this context.
@@ -350,7 +398,7 @@ For each REVIEW match:
 - `path/to/file.swift:[line]` - [why context is unclear]
 ```
 
-The report is human-readable and self-contained. See § Deferred to v1.1+ for the planned JSON sidecar that would enable downstream skill chaining (e.g., feeding findings into `safe-refactor`).
+The report is human-readable and self-contained. See § Deferred to v1.3+ for the planned JSON sidecar that would enable downstream skill chaining (e.g., feeding findings into `safe-refactor`).
 
 ---
 
@@ -453,14 +501,22 @@ These keys are descriptive metadata only — no router currently reads them at a
 
 ---
 
-## Deferred to v1.3+
+## Deferred to v1.4+
 
 These features are documented for future releases:
 
 - **JSON sidecar:** machine-readable output alongside the Markdown report, for chaining into downstream skills.
-- **Recurrence detection:** comparing the new report against prior reports in `.agents/research/` to detect recurring patterns and suggest architectural fixes.
+- **Full recurrence detection:** comparing the new report against prior `.agents/research/` reports to detect recurring patterns and suggest architectural fixes. (v1.3.0 shipped the conservative git-history slice of this — the already-swept exclusion in Step 2.5 — which reads commit history, not prior reports. The deferred version is the report-cross-referencing analysis.)
 - **`known-intentional.yaml` user file:** explicit suppression of patterns the user has confirmed are intentional, so they don't surface again.
 - **Multi-language pattern construction beyond Swift:** the current inference works for any language (regex from diff is language-neutral), but a future release may add language-specific tuning.
+
+## v1.3.0 (2026-07-21)
+
+Large-codebase hardening. All three additions are threshold-gated branches; the sub-500-file common path is unchanged from v1.2.0. See the new § Scale invariants (Pre-flight) for the guarantee.
+
+- **Already-swept exclusion (Step 2.5):** on a large codebase swept across multiple sessions, sites fixed-and-committed in a prior bug-echo run no longer resurface as fresh candidates. Gated to fire only at ≥6 candidates *and* when the repo has prior `bug-echo:` commits; below the gate it is a single empty `git log` call. Cross-references git commit history (ground truth of what was fixed), capped at the 50 most recent `bug-echo:` commits so cost is bounded by commit count, not calendar time. Re-reads live source before excluding, so a reintroduced pattern is still caught — git only says *where to look*, never "already fixed."
+- **High-count tighten offer (Step 2.5):** when a validated pattern returns ≥25 candidates (an absolute threshold, not relative to repo size), offers to tighten the pattern before classifying, rather than grinding through hundreds of mostly-OK sites. Directly addresses the "heavily overloaded with false positives" limit. Below 25, never shown.
+- **Scale invariants (Pre-flight):** a standing contract that large-codebase logic must stay threshold-gated and the small-codebase path must remain untouched, so future edits can't quietly tax the common case.
 
 ## v1.2.0 (2026-06-06)
 

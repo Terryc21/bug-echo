@@ -2,7 +2,7 @@
 
 ![Version](https://img.shields.io/github/v/tag/Terryc21/bug-echo?label=version) ![Last commit](https://img.shields.io/github/last-commit/Terryc21/bug-echo) ![Stars](https://img.shields.io/github/stars/Terryc21/bug-echo?style=flat) ![Issues](https://img.shields.io/github/issues/Terryc21/bug-echo) ![License](https://img.shields.io/github/license/Terryc21/bug-echo) ![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet)
 
-**You just fixed a bug. bug-echo asks the obvious next question: did I make this same mistake anywhere else? It looks at the fix you just made, works out what the mistake was, and searches the rest of your project for the same mistake hiding in other spots. Then it hands you a plain report: here's a real one, here's a false alarm, here's one you should look at yourself.**
+**You just fixed a bug. bug-echo asks the obvious next question: does this same buggy pattern appear anywhere else? It looks at the fix you just made, works out what the underlying pattern was, and searches the rest of your project for that same pattern hiding in other spots. Then it hands you a plain report: here's a real one, here's a false alarm, here's one you should look at yourself.**
 
 > **Companion:** [bug-prospector](https://github.com/Terryc21/bug-prospector) hunts for bugs you *haven't* found yet. bug-echo runs *after* you fix one. Together they cover both halves of the job.
 
@@ -12,13 +12,13 @@ Built while shipping [Stuffolio](https://stuffolio.app), an iOS/macOS app, throu
 
 ## New here? Start with this
 
-**The problem it solves.** When you fix a bug, you fix it in one spot. But the same mistake is often copy-pasted, or re-typed from habit, in three other places you've forgotten about. Those copies sit quietly in your project until one of them breaks for a user weeks later. Finding them by hand means remembering every place you might have done the same thing, which is exactly the thing humans are bad at.
+**The problem it solves.** When you fix a bug, you fix it in one spot. But the same buggy pattern often lives in three other places you've forgotten about: copy-pasted, re-typed from habit, or left behind when a refactor or an API change didn't reach every site. Those copies sit quietly in your project until one of them breaks for a user weeks later. Finding them by hand means remembering every place the same shape could occur, which is exactly the thing humans are bad at.
 
 **What bug-echo does.** Right after you fix a bug, you run one command. bug-echo:
 
-1. Looks at the change you just made and works out what the underlying mistake was.
-2. Double-checks its own understanding against the broken version of the file. If it got the mistake wrong, it stops instead of wasting your time.
-3. Searches your whole project for other places that have the same mistake.
+1. Looks at the change you just made and works out what the underlying buggy pattern was.
+2. Double-checks its own understanding against the broken version of the file. If it got the pattern wrong, it stops instead of wasting your time.
+3. Searches your whole project for other places with that same pattern.
 4. Reads each one and tells you which are real bugs, which are fine, and which need your eyes.
 
 You get a short written report you can act on. That's the whole loop.
@@ -31,15 +31,15 @@ If some words here are new, this is the whole vocabulary in one place:
 
 - **Skill / plugin.** A skill is a set of instructions Claude Code knows how to follow. Once installed, you type `/bug-echo` and Claude does the work. You don't memorize anything.
 - **A "fix" / a "diff."** When you change code, the before-and-after difference is called a *diff*. bug-echo reads your most recent diff to learn what the bug was.
-- **Sibling bug.** Another spot in your project with the same underlying mistake as the one you just fixed.
+- **Sibling bug.** Another spot in your project with the same underlying buggy pattern as the one you just fixed.
 - **BUG / OK / REVIEW.** How bug-echo labels each spot it finds: a real problem, a false alarm, or "not sure, you decide."
 
 That's enough to use it. The rest of the README goes deeper for people who want the mechanics.
 
 ## TL;DR
 
-- **What:** A Claude Code skill you run right after fixing a bug. It learns the mistake from your fix and searches the rest of your project for the same mistake elsewhere. Each hit is labeled BUG / OK / REVIEW with an exact file and line number.
-- **Why it works:** The mistake it searches for is one that just proved itself real in your code. That beats checking against a pre-written list, because the pattern was chosen by an actual bug, not by someone guessing in advance.
+- **What:** A Claude Code skill you run right after fixing a bug. It learns the buggy pattern from your fix and searches the rest of your project for that same pattern elsewhere. Each hit is labeled BUG / OK / REVIEW with an exact file and line number.
+- **Why it works:** The pattern it searches for is one that just proved itself real in your code. That beats checking against a pre-written list, because the pattern was chosen by an actual bug, not by someone guessing in advance.
 - **Install:** Two `/plugin` commands in Claude Code. Then `/bug-echo` works in any project.
 - **Try it:** After your next bug fix, run `/bug-echo`. It takes about 2 minutes on a typical codebase.
 - **Example output:** [a real sibling-bug scan on Stuffolio](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). Also: [describe-mode example on TypeScript (synthesized)](skills/bug-echo/examples/describe-mode-await-in-forEach.md).
@@ -53,7 +53,7 @@ Short version: keep both. They catch different bugs at different moments.
 
 A **linter** (SwiftLint, ESLint, and similar) checks every file, every time you save, against a fixed list of known problems. It's fast, cheap, and constant. It catches a whole class of issues bug-echo would never bother running for. You wouldn't fire off a whole-project scan for every missing `@MainActor`. **A linter will find issues bug-echo won't.**
 
-**bug-echo** flips the direction. It runs *once, after a fix*, and only looks for the specific mistake you just made, a mistake that **just proved itself real in your own code, fifteen minutes ago**. The fix is the proof. That's far more accurate than checking against a fixed list, because the pattern was chosen by an actual bug rather than by a rule author guessing. **It finds copies of a bug your linter has no rule for**, because the bug was novel enough to need fixing in the first place.
+**bug-echo** flips the direction. It runs *once, after a fix*, and only looks for the specific pattern you just fixed, a pattern that **just proved itself real in your own code, fifteen minutes ago**. The fix is the proof. That's far more accurate than checking against a fixed list, because the pattern was chosen by an actual bug rather than by a rule author guessing. **It finds copies of a bug your linter has no rule for**, because the bug was novel enough to need fixing in the first place.
 
 The safeguard that makes this trustworthy: before searching, bug-echo checks that it understood the bug correctly by testing its guess against the broken version of the file. If the guess doesn't match, the skill stops rather than searching for the wrong thing. You never get a report built on a misread.
 
@@ -73,7 +73,7 @@ Both have "bug" in the name, but they answer different questions and run at diff
 | | bug-echo | [bug-prospector](https://github.com/Terryc21/bug-prospector) |
 |---|---|---|
 | **When you run it** | Right after you fix a bug | Before a release, after a crash, while exploring |
-| **The question it asks** | "Where else did I make this same mistake?" | "What could go wrong that I haven't found yet?" |
+| **The question it asks** | "Where else does this same buggy pattern appear?" | "What could go wrong that I haven't found yet?" |
 | **What it needs** | The fix you just made | Just your code |
 | **Where its pattern comes from** | Learned from your actual fix and checked against the broken file | 7 forward-looking lenses (assumptions, state machines, boundaries, lifecycle, errors, time, platform) |
 
@@ -118,9 +118,9 @@ The loop is short:
 
 1. Fix a bug. Save the fix (commit or stage it).
 2. Run `/bug-echo`.
-3. bug-echo reads your fix, works out the mistake, double-checks its understanding against the broken version, then searches your project.
+3. bug-echo reads your fix, works out the buggy pattern, double-checks its understanding against the broken version, then searches your project.
 4. For each spot it finds, it reads the surrounding code and labels it:
-   - **BUG** — the same mistake, and here it's a real problem.
+   - **BUG** — the same pattern, and here it's a real problem.
    - **OK** — the code looks similar but is actually fine or intentional here (for example, the line sits inside an iOS-only block on a Mac-specific pattern).
    - **REVIEW** — not enough context to be sure; you decide.
 5. Optionally, it can walk you through fixing each one, asking permission before every change. It never edits anything without your OK.
@@ -139,10 +139,10 @@ I'd just fixed a bug in Stuffolio. On one screen, a "save" action was accidental
 
 After saving the fix, I ran `/bug-echo`. Here's what it did:
 
-1. **Figured out the mistake** by reading my fix.
+1. **Figured out the buggy pattern** by reading my fix.
 2. **Checked its own work** against the broken version of the file, to confirm it understood the bug correctly. If it hadn't, it would have stopped here.
 3. **Searched all 596 files** in the project. Two seconds, three hits.
-4. **Read each hit in context and labeled it.** One was my fix itself (OK). One only looked similar but was harmless (OK). **One was a real sibling bug**, a "Done" button on the *same screen* making the exact same mistake, just written slightly differently.
+4. **Read each hit in context and labeled it.** One was my fix itself (OK). One only looked similar but was harmless (OK). **One was a real sibling bug**, a "Done" button on the *same screen* with the exact same buggy pattern, just written slightly differently.
 5. **Wrote a report** with the file, the line number, how serious it was, and a suggested fix.
 
 That sibling bug had been sitting in shipping code for weeks. It would have hit a real user eventually. bug-echo found it in two minutes.

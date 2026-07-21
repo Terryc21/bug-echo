@@ -2,62 +2,82 @@
 
 ![Version](https://img.shields.io/github/v/tag/Terryc21/bug-echo?label=version) ![Last commit](https://img.shields.io/github/last-commit/Terryc21/bug-echo) ![Stars](https://img.shields.io/github/stars/Terryc21/bug-echo?style=flat) ![Issues](https://img.shields.io/github/issues/Terryc21/bug-echo) ![License](https://img.shields.io/github/license/Terryc21/bug-echo) ![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet)
 
-**A Claude Code skill that runs after a fix lands, infers the anti-pattern from your diff, validates the pattern against the pre-fix file, and scans the rest of the codebase for sibling instances. Each match is read in context and classified BUG / OK / REVIEW.**
+**You just fixed a bug. bug-echo asks the obvious next question: did I make this same mistake anywhere else? It looks at the fix you just made, works out what the mistake was, and searches the rest of your project for the same mistake hiding in other spots. Then it hands you a plain report: here's a real one, here's a false alarm, here's one you should look at yourself.**
 
-> **Companion:** [bug-prospector](https://github.com/Terryc21/bug-prospector) — runs *before* a fix to find bugs you haven't seen yet. The two skills cover opposite halves of the bug-finding loop.
+> **Companion:** [bug-prospector](https://github.com/Terryc21/bug-prospector) hunts for bugs you *haven't* found yet. bug-echo runs *after* you fix one. Together they cover both halves of the job.
 
-bug-echo and pattern-based linters are complementary, not competitive: linters check every file against pre-built rules on every save; bug-echo runs once per fix to scan for siblings of a bug that just demonstrated itself. **A thorough audit uses both.**
+Built while shipping [Stuffolio](https://stuffolio.app), an iOS/macOS app, through real App Store submission cycles. bug-echo is free, open source, Apache 2.0.
 
-Built while shipping [Stuffolio](https://stuffolio.app), an iOS/macOS app, through real App Store submission cycles. bug-echo itself is free, open source, Apache 2.0.
+*~7 min read. Scan the TL;DR if you only have 30 seconds.*
 
-*~7 min read · scan the TL;DR if you only have 30 seconds*
+## New here? Start with this
 
-## Newer to Claude Code?
+**The problem it solves.** When you fix a bug, you fix it in one spot. But the same mistake is often copy-pasted, or re-typed from habit, in three other places you've forgotten about. Those copies sit quietly in your project until one of them breaks for a user weeks later. Finding them by hand means remembering every place you might have done the same thing, which is exactly the thing humans are bad at.
 
-A **skill** is a markdown file Claude Code knows how to run. When you type `/bug-echo` after a bug fix, Claude follows the instructions in this skill, reads your diff, scans for sibling patterns, and writes you a classified report. You don't have to memorize anything — the skill tells Claude what to do, you read the report.
+**What bug-echo does.** Right after you fix a bug, you run one command. bug-echo:
+
+1. Looks at the change you just made and works out what the underlying mistake was.
+2. Double-checks its own understanding against the broken version of the file. If it got the mistake wrong, it stops instead of wasting your time.
+3. Searches your whole project for other places that have the same mistake.
+4. Reads each one and tells you which are real bugs, which are fine, and which need your eyes.
+
+You get a short written report you can act on. That's the whole loop.
+
+**Why this beats a normal code checker.** Tools like linters check your code against a fixed list of known problems that someone wrote down in advance. bug-echo is different. The problem it looks for is one that *just proved it was real*, in your own code, fifteen minutes ago. Nobody had to predict it. Reality picked the pattern for you. That's why it catches bugs your other tools have no rule for. (More on this below. The two work well together.)
+
+### A few terms, once
+
+If some words here are new, this is the whole vocabulary in one place:
+
+- **Skill / plugin.** A skill is a set of instructions Claude Code knows how to follow. Once installed, you type `/bug-echo` and Claude does the work. You don't memorize anything.
+- **A "fix" / a "diff."** When you change code, the before-and-after difference is called a *diff*. bug-echo reads your most recent diff to learn what the bug was.
+- **Sibling bug.** Another spot in your project with the same underlying mistake as the one you just fixed.
+- **BUG / OK / REVIEW.** How bug-echo labels each spot it finds: a real problem, a false alarm, or "not sure, you decide."
+
+That's enough to use it. The rest of the README goes deeper for people who want the mechanics.
 
 ## TL;DR
 
-- **What:** A Claude Code skill that runs *after* a bug fix, infers the anti-pattern from the diff, and scans the codebase for sibling instances. Each match classified BUG / OK / REVIEW with file:line citations.
-- **Why:** The pattern bug-echo scans for is one that *just demonstrated itself in your codebase*. After-the-fact pattern matching beats catalog matching because the pattern was selected by reality, not by a rule author guessing.
-- **Install:** Two `/plugin` commands in Claude Code; then `/bug-echo` is available in any project.
-- **Try first:** After your next bug fix, run `/bug-echo`. It reads the diff, self-validates the inferred pattern, and scans in ~2 minutes on a typical Swift codebase.
+- **What:** A Claude Code skill you run right after fixing a bug. It learns the mistake from your fix and searches the rest of your project for the same mistake elsewhere. Each hit is labeled BUG / OK / REVIEW with an exact file and line number.
+- **Why it works:** The mistake it searches for is one that just proved itself real in your code. That beats checking against a pre-written list, because the pattern was chosen by an actual bug, not by someone guessing in advance.
+- **Install:** Two `/plugin` commands in Claude Code. Then `/bug-echo` works in any project.
+- **Try it:** After your next bug fix, run `/bug-echo`. It takes about 2 minutes on a typical codebase.
 - **Example output:** [a real sibling-bug scan on Stuffolio](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). Also: [describe-mode example on TypeScript (synthesized)](skills/bug-echo/examples/describe-mode-await-in-forEach.md).
-- **See it work:** [Real example: caught a 2-week-old sibling bug in 2 minutes](#a-worked-example).
-- **Maturity:** v1.2.0; used through real App Store submission cycles; works on any language for pattern construction, with platform-conditional handling currently Swift-specific.
-- **New in v1.2.0:** [recon scout](skills/bug-echo/examples/recon-scout-rationale.md) — the skill now counts candidates before running the full ceremony and matches report shape to actual signal (0 / 1-5 / 6+ buckets). Cuts ~39% of historical runs to a one-line note or inline rated table instead of a full file write.
+- **See it work:** [a real run that caught a 2-week-old sibling bug in 2 minutes](#a-worked-example).
+- **Maturity:** v1.3.0, used through real App Store submission cycles. Works in any language for building the search pattern, with a few Apple-specific niceties currently Swift-only.
+- **New in v1.3.0:** large-codebase hardening. On a big project swept across several sessions, bug-echo now skips sites it already fixed in a prior run (checked against git history, then re-verified against live source so a reintroduced bug is still caught), and offers to tighten an over-broad pattern before classifying hundreds of matches. Both are threshold-gated, so small projects run exactly as before. Earlier, [the v1.2.0 recon scout](skills/bug-echo/examples/recon-scout-rationale.md) added report-shaping that cuts about 39% of runs to a one-line note or short inline table instead of a full report file.
 
-## What bug-echo is for vs what linters are for
+## bug-echo vs. a linter (they work together)
 
-bug-echo and linters are complementary — they catch different bugs at different times in your workflow.
+Short version: keep both. They catch different bugs at different moments.
 
-**Pattern-based linters (SwiftLint, ESLint, custom rule sets)** check every file against a pre-built catalog on every save. The catalog reflects what someone *thought* was a bug at the time the rule was written. Linters are fast, cheap, and catch a real class of style and pattern violations that bug-echo would never run for (you wouldn't fire a sibling scan for every missing `@MainActor`). **They will find issues bug-echo won't.**
+A **linter** (SwiftLint, ESLint, and similar) checks every file, every time you save, against a fixed list of known problems. It's fast, cheap, and constant. It catches a whole class of issues bug-echo would never bother running for. You wouldn't fire off a whole-project scan for every missing `@MainActor`. **A linter will find issues bug-echo won't.**
 
-**bug-echo** flips the direction. It runs *once per fix*, in response to a bug that **just demonstrated itself in your codebase, fifteen minutes ago, in production code you wrote**. The fix is the proof. After-the-fact pattern matching is dramatically more accurate than catalog matching because the pattern was selected by reality, not by a rule author guessing. **It will find sibling instances of bugs your linter has no rule for** — because the bug was novel enough to need fixing in the first place.
+**bug-echo** flips the direction. It runs *once, after a fix*, and only looks for the specific mistake you just made, a mistake that **just proved itself real in your own code, fifteen minutes ago**. The fix is the proof. That's far more accurate than checking against a fixed list, because the pattern was chosen by an actual bug rather than by a rule author guessing. **It finds copies of a bug your linter has no rule for**, because the bug was novel enough to need fixing in the first place.
 
-The trick that makes this practical: bug-echo self-validates the inferred pattern against the pre-fix version of the file before scanning. If the pattern doesn't match the bug it was extracted from, the skill stops rather than scanning with a bad search. You never get findings from a misinterpreted diff.
+The safeguard that makes this trustworthy: before searching, bug-echo checks that it understood the bug correctly by testing its guess against the broken version of the file. If the guess doesn't match, the skill stops rather than searching for the wrong thing. You never get a report built on a misread.
 
-| What linters do better | What bug-echo does better |
+| A linter is better at | bug-echo is better at |
 |---|---|
-| Run on every save (cheap, continuous) | Run once per fix (focused, narrow) |
-| Catalog of well-understood violations | Pattern from your most recent real bug |
-| Catch style and pattern violations | Catch siblings of the bug you just fixed |
-| Mature ecosystem | Novel-bug propagation; no catalog needed |
+| Running on every save (cheap, continuous) | Running once per fix (focused, narrow) |
+| A list of well-understood problems | The specific bug you just hit |
+| Style and formatting rules | Finding copies of your latest real bug |
+| A mature, established ecosystem | New bugs with no rule written for them |
 
-If your project already uses SwiftLint or another pattern-based audit, keep it. bug-echo runs at a different moment for a different purpose.
+If your project already uses SwiftLint or another pattern-based checker, keep it. bug-echo runs at a different moment for a different purpose.
 
-## bug-echo vs. bug-prospector — which should you use?
+## bug-echo vs. bug-prospector — which do I use?
 
-Both have "bug" in the name; they answer different questions and run at different times.
+Both have "bug" in the name, but they answer different questions and run at different times.
 
 | | bug-echo | [bug-prospector](https://github.com/Terryc21/bug-prospector) |
 |---|---|---|
-| **When you run it** | Right after you fix a bug | Before a release, after a crash report, during exploration |
-| **What it asks** | "Where else does this exact thing live?" | "What could go wrong?" |
-| **What it needs** | The diff of a fix you just committed | Just code |
-| **Pattern source** | The pattern is inferred from your actual diff and validated against the pre-fix file | 7 forward-looking lenses (assumptions, state machines, boundaries, lifecycle, errors, time, platform) |
+| **When you run it** | Right after you fix a bug | Before a release, after a crash, while exploring |
+| **The question it asks** | "Where else did I make this same mistake?" | "What could go wrong that I haven't found yet?" |
+| **What it needs** | The fix you just made | Just your code |
+| **Where its pattern comes from** | Learned from your actual fix and checked against the broken file | 7 forward-looking lenses (assumptions, state machines, boundaries, lifecycle, errors, time, platform) |
 
-Many people run both — bug-prospector before releases, bug-echo after every bug fix. They complement each other.
+Many people run both: bug-prospector before releases, bug-echo after every fix.
 
 ## Install
 
@@ -71,19 +91,19 @@ Two commands in Claude Code, run one at a time:
 /plugin install bug-echo@bug-echo
 ```
 
-> **Why two commands?** Claude Code's slash-command dispatcher treats the second `/plugin` as text inside the first command and tries to clone a repo with a malformed name. The error message ("SSH authentication failed") is misleading. Run them one at a time.
+> **Why two separate commands?** If you paste both at once, Claude Code's command reader mistakes the second `/plugin` for part of the first and fails with a confusing "SSH authentication failed" message. Run them one at a time and it works.
 
-After installing, the easiest way to try it: wait until your next real bug fix, commit (or stage) it, then run:
+The easiest way to try it: wait for your next real bug fix, save it (commit or stage it in git), then run:
 
 ```
 /bug-echo
 ```
 
-The skill reads the diff, self-validates the inferred pattern against the pre-fix file, and scans in ~2 minutes on a typical Swift codebase. You'll get a real report you can act on.
+You'll get a real report you can act on in about 2 minutes.
 
-### Optional: install bug-prospector alongside
+### Optional: install bug-prospector too
 
-bug-echo runs after a fix. [bug-prospector](https://github.com/Terryc21/bug-prospector) runs before one — same workflow loop, opposite end. Most users want both:
+bug-echo runs after a fix. [bug-prospector](https://github.com/Terryc21/bug-prospector) runs before one, the same loop from the opposite end. Most people want both:
 
 ```
 /plugin marketplace add Terryc21/bug-prospector
@@ -92,35 +112,54 @@ bug-echo runs after a fix. [bug-prospector](https://github.com/Terryc21/bug-pros
 
 (Same one-at-a-time rule applies.)
 
-## Workflow
+## How you'll actually use it
 
-The expected loop is short:
+The loop is short:
 
-1. Fix a bug. Commit (or stage) the fix.
+1. Fix a bug. Save the fix (commit or stage it).
 2. Run `/bug-echo`.
-3. Skill reads the diff, infers a regex from removed lines, validates against `git show HEAD~1:path/to/file` (or the unstaged baseline), then scans the codebase.
-4. Each match is read in a 20-line window and classified individually:
-   - **BUG** — same anti-pattern, contextually a real problem
-   - **OK** — pattern matches but the surrounding code makes it correct or intentional (e.g., the matched line is inside a `#if os(iOS)` block on a Swift codebase where the pattern is macOS-specific)
-   - **REVIEW** — context insufficient for a confident call; you decide
-5. Optional guided fix flow with explicit approval per finding. Skill never edits without confirmation.
+3. bug-echo reads your fix, works out the mistake, double-checks its understanding against the broken version, then searches your project.
+4. For each spot it finds, it reads the surrounding code and labels it:
+   - **BUG** — the same mistake, and here it's a real problem.
+   - **OK** — the code looks similar but is actually fine or intentional here (for example, the line sits inside an iOS-only block on a Mac-specific pattern).
+   - **REVIEW** — not enough context to be sure; you decide.
+5. Optionally, it can walk you through fixing each one, asking permission before every change. It never edits anything without your OK.
 
-You can also invoke the skill in **describe mode** (`/bug-echo "<pattern description>"`) when there's no recent diff. Useful for hypothesis-driven sweeps, for fixes whose diff is too noisy to infer from cleanly, or when the bug is conceptual ("anywhere we use `Task { ... }` inside a SwiftUI view body without `[weak self]`").
+**No recent fix to point at?** You can also describe the pattern in your own words:
 
-## Scoping a run
+```
+/bug-echo "anywhere we open a file but never close it"
+```
 
-bug-echo's scope is determined by **which pattern it's scanning for**, not by a file path. The skill always scans the whole repo (Grep + Glob across all source files); the question is how the pattern gets constructed.
+Useful when you have a hunch to chase, when a fix's before-and-after is too messy to learn from cleanly, or when the bug is more of an idea than a single line ("anywhere we start a background task in a view without cleaning it up").
 
-| Goal | Command |
-|---|---|
-| Sweep for siblings of the bug you just fixed | `/bug-echo` (after `git commit` or `git add`) |
-| Hypothesis-driven sweep (no recent fix) | `/bug-echo "<pattern description>"` |
-| Sweep but write the report elsewhere | `/bug-echo output=docs/audits/` |
-| Sweep with explicit AST-grep precision | `/bug-echo --ast-grep` (auto-detected if `ast-grep` is on PATH) |
+## A worked example
 
-**Fresh vs prior history.** Every bug-echo run is fresh by design — the skill re-reads the diff (or the description), re-validates the inferred pattern against the pre-fix file, and re-scans the codebase. There's no cache of previous runs and no resume mode. Prior reports live in `.agents/research/` and can be diffed by hand, but the skill won't auto-skip findings it flagged last time. This is deliberate: if the pattern is real, finding it again on the next run is a feature, not noise — it tells you the sibling never got fixed. A "recurrence detection across prior reports" mode is planned for a future release; today, you compare reports manually.
+I'd just fixed a bug in Stuffolio. On one screen, a "save" action was accidentally closing the whole window on Mac instead of just finishing the save. The fix itself was one small change.
 
-I fixed a SwiftUI captured-`self` staleness bug. Save handler called `dismiss()` on macOS inline in a `NavigationSplitView` — which closes the host window. The bug was in this line, repeated in two slightly different shapes:
+After saving the fix, I ran `/bug-echo`. Here's what it did:
+
+1. **Figured out the mistake** by reading my fix.
+2. **Checked its own work** against the broken version of the file, to confirm it understood the bug correctly. If it hadn't, it would have stopped here.
+3. **Searched all 596 files** in the project. Two seconds, three hits.
+4. **Read each hit in context and labeled it.** One was my fix itself (OK). One only looked similar but was harmless (OK). **One was a real sibling bug**, a "Done" button on the *same screen* making the exact same mistake, just written slightly differently.
+5. **Wrote a report** with the file, the line number, how serious it was, and a suggested fix.
+
+That sibling bug had been sitting in shipping code for weeks. It would have hit a real user eventually. bug-echo found it in two minutes.
+
+The full sample report from a different real run is here: [example output](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). It shows the standard format (BUG findings, WATCH classifications, the rating table, suggested fixes). A second example shows **describe-mode** on a TypeScript codebase, where a developer sweeps for a known async mistake before fixing it: [describe-mode example, synthesized](skills/bug-echo/examples/describe-mode-await-in-forEach.md). It's marked synthesized because the pattern is real but the codebase is illustrative; the report shape and rules match real runs.
+
+> **Want the exact code, the search it built, and the file paths?** They're in [Under the hood](#under-the-hood-technical-detail) below.
+
+---
+
+## Under the hood: technical detail
+
+Everything below is for readers who want the mechanics: how the search pattern is built, how classification works, and how to compose bug-echo with other tools. If you just wanted to use the skill, you can stop above.
+
+### The worked example, in full technical detail
+
+I fixed a SwiftUI captured-`self` staleness bug. The save handler called `dismiss()` on macOS inline in a `NavigationSplitView`, which closes the host window. The bug was in this line, repeated in two slightly different shapes:
 
 ```swift
 // Pre-fix (buggy)
@@ -139,21 +178,15 @@ The `??` looks harmless, but inline in a SwiftUI body it captures `self` lazily.
 
 After committing, I ran `/bug-echo`. Here's what the skill did:
 
-1. **Inferred the pattern.** Read the diff and constructed the regex `\w+\s*\?\?\s*\{[^}]*dismiss\(\)` — narrow enough to catch the staleness shape, broad enough to catch syntactic variants.
+1. **Inferred the pattern.** Read the diff and built the regex (a text-search pattern) `\w+\s*\?\?\s*\{[^}]*dismiss\(\)`, narrow enough to catch the staleness shape, broad enough to catch syntactic variants.
 2. **Self-validated.** Checked the pre-fix file (`git show HEAD~1:Sources/Features/StuffScout/StuffScoutView.swift`) and confirmed the regex matched the original buggy line. If it hadn't, the skill would have stopped.
 3. **Scanned 596 Swift files.** Three matches, two seconds.
-4. **Classified each in context.** One was the fix itself (OK). One was inside a regular function, not a SwiftUI body (OK; no captured-`self` lifecycle). **One was a sibling bug**: a Done button in the same file using `(dismissOverride ?? { dismiss() })()` inside a `Button` action, exact same staleness pattern, different syntactic wrapper.
+4. **Classified each in context.** One was the fix itself (OK). One was inside a regular function, not a SwiftUI body (OK; no captured-`self` lifecycle). **One was a sibling bug**: a Done button in the same file using `(dismissOverride ?? { dismiss() })()` inside a `Button` action, the exact same staleness pattern in a different syntactic wrapper.
 5. **Wrote a markdown report** to `.agents/research/2026-05-06-bug-echo-swiftui-captured-self-staleness.md` with file:line citations, severity ratings, and a suggested fix for the BUG finding.
 
-That sibling had been in production code for weeks. It would have hit a user eventually. bug-echo found it in two minutes.
+### Pattern construction details
 
-The full sample report from a different real run is here: [example output](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). It demonstrates the standard output format (BUG findings, WATCH classifications, the issue rating table, suggested fixes).
-
-A second example showing **describe-mode** on a TypeScript codebase (a senior dev sweeps for `await` inside `Array.forEach` before fixing): [describe-mode example — synthesized](skills/bug-echo/examples/describe-mode-await-in-forEach.md). Marked synthesized because the pattern is real but the codebase is illustrative; the report shape and classification rules match real runs.
-
-## Pattern construction details
-
-**From a diff:** the skill parses unified diff format, extracts the removed (`-`) lines, identifies a distinctive substring shared across the bug instances, and constructs a regex narrow enough to avoid false positives but broad enough to catch reasonable syntactic variation. It deliberately avoids matching on whitespace or trailing punctuation. If your diff includes unrelated cleanup (renames, formatting, comment additions), the inferred pattern will be too narrow; switch to describe mode in that case.
+**From a diff:** the skill parses unified diff format, extracts the removed (`-`) lines, identifies a distinctive substring shared across the bug instances, and builds a regex narrow enough to avoid false positives but broad enough to catch reasonable syntactic variation. It deliberately avoids matching on whitespace or trailing punctuation. If your diff includes unrelated cleanup (renames, formatting, comment additions), the inferred pattern will be too narrow; switch to describe mode in that case.
 
 **Self-validation:** before scanning, the skill compares the inferred pattern against the pre-fix file. If the pattern doesn't match anything there, it stops and reports the failure. There's no scanning with a bad pattern.
 
@@ -163,18 +196,31 @@ A second example showing **describe-mode** on a TypeScript codebase (a senior de
 
 ### Optional: AST-grep for higher precision
 
-bug-echo defaults to regex via the Grep tool. Regex is fast and catches most patterns. AST-grep is meaningfully better when:
+bug-echo defaults to regex via the Grep tool. Regex is fast and catches most patterns. AST-grep (a tool that matches code by its structure rather than its text) is meaningfully better when:
 
 - The pattern spans multiple lines and indentation varies between match sites
 - You want to match a specific syntactic construct (a `Button` action closure, a `@MainActor` function call) rather than a textual shape
 - You're in a codebase where formatter runs have produced inconsistent whitespace
-- The anti-pattern depends on AST structure (e.g., "any closure assigned to a `let` whose type is `() -> Void`")
+- The anti-pattern depends on code structure (for example, "any closure assigned to a `let` whose type is `() -> Void`")
 
 If `ast-grep` is on PATH, the skill detects it and uses it automatically. To install: `brew install ast-grep`. Regex still works fine if you skip this; the skill notes which tool produced the matches in the report header.
 
+### Scoping a run
+
+bug-echo's scope is set by **which pattern it's scanning for**, not by a file path. The skill always scans the whole repo (Grep + Glob across all source files); the only question is how the pattern gets built.
+
+| Goal | Command |
+|---|---|
+| Sweep for siblings of the bug you just fixed | `/bug-echo` (after `git commit` or `git add`) |
+| Hypothesis-driven sweep (no recent fix) | `/bug-echo "<pattern description>"` |
+| Sweep but write the report elsewhere | `/bug-echo output=docs/audits/` |
+| Sweep with explicit AST-grep precision | `/bug-echo --ast-grep` (auto-detected if `ast-grep` is on PATH) |
+
+**Fresh vs prior history.** Every bug-echo run is fresh by design. The skill re-reads the diff (or the description), re-validates the inferred pattern against the pre-fix file, and re-scans the codebase. There's no cache of previous runs and no resume mode. Prior reports live in `.agents/research/` and can be compared by hand, but the skill won't auto-skip findings it flagged last time. This is deliberate: if the pattern is real, finding it again on the next run is a feature, not noise. It tells you the sibling never got fixed. A "recurrence detection across prior reports" mode is planned for a future release; today, you compare reports manually.
+
 ## Output format
 
-Reports go to `.agents/research/YYYY-MM-DD-bug-echo-*.md` in your project by default. The `.agents/research/` directory is a convention shared with radar-suite, bug-prospector, and other Coffee & Code audit skills; if your project doesn't use it, the skill creates it. Override the location by passing `output=<path>` in the invoking prompt (e.g., `/bug-echo output=docs/audits/`). Standard format across the radar/audit ecosystem:
+Reports go to `.agents/research/YYYY-MM-DD-bug-echo-*.md` in your project by default. The `.agents/research/` directory is a convention shared with radar-suite, bug-prospector, and other Coffee & Code audit skills; if your project doesn't use it, the skill creates it. Override the location by passing `output=<path>` in the invoking prompt (for example, `/bug-echo output=docs/audits/`). Standard format across the radar/audit ecosystem:
 
 - File and line citations for every claim
 - 9-column rating table: #, Finding, Urgency, Risk: Fix, Risk: No Fix, ROI, Blast Radius, Fix Effort, Status. The Status column reads `Open` on first display and updates to `Fixed`, `Deferred`, or `Skipped` after the guided-fix session in Step 6.
@@ -204,10 +250,10 @@ Rule of thumb: if the bug surprised you, run bug-echo. Surprise is a signal the 
 
 ## CI and pre-commit integration
 
-bug-echo isn't a CI-shaped tool. It needs a real fix to compare against, ideally with the pre-fix version available via git, and the per-match classification step uses Claude — that's not something you want firing on every commit. Two options for automation:
+bug-echo isn't a CI-shaped tool. It needs a real fix to compare against, ideally with the pre-fix version available via git, and the per-match classification step uses Claude, which isn't something you want firing on every commit. Two options for automation:
 
 - **Manual gate.** Add a step to your release checklist that runs `/bug-echo` after each merged bug-fix PR. Captures sibling bugs before they reach a release branch.
-- **Selective trigger.** A pre-merge hook that runs only when the commit message contains a specific tag (e.g., `[bug-fix]`). The hook calls Claude Code via the `claude` CLI. Cost-effective for teams that label bug-fix commits.
+- **Selective trigger.** A pre-merge hook that runs only when the commit message contains a specific tag (for example, `[bug-fix]`). The hook calls Claude Code via the `claude` CLI. Cost-effective for teams that label bug-fix commits.
 
 Don't put bug-echo on every commit. The pre-fix-vs-post-fix premise breaks down for ordinary feature work, and the budget impact is real.
 
@@ -233,15 +279,15 @@ For high-stakes fixes (P0 incidents, security-adjacent bugs, fixes to widely-sha
 | 2. Verify | [radar-suite](https://github.com/Terryc21/radar-suite) | Runs an audit focused on the area the fix touched. Catches cases where the deferred row is stale (the fix shipped weeks ago, nobody updated the ledger) or the fix is incomplete (passes locally, fails another check). |
 | 3. Generalize | bug-echo (this skill) | Sweeps for sibling instances. Closes the bug class, not just the individual bug. |
 
-The shape is **surface → verify → generalize**: confirm the issue is real and current, confirm the fix is real, then look for siblings. It's slower than running bug-echo alone (typically 60-90 minutes for a real chain), but for bugs where shipping an incomplete fix would be expensive, it's the most thorough close-out I've found. Standalone bug-echo is fine for normal fixes.
+The shape is **surface, then verify, then generalize**: confirm the issue is real and current, confirm the fix is real, then look for siblings. It's slower than running bug-echo alone (typically 60-90 minutes for a real chain), but for bugs where shipping an incomplete fix would be expensive, it's the most thorough close-out I've found. Standalone bug-echo is fine for normal fixes.
 
 A real chain example: an iPhone-only crash deferred for a month was marked Fixed by `unforget`, then `radar-suite focus on collapsibleSectionsStack` reported the fix had actually shipped weeks earlier in two specific commits and the ledger was stale. Closed as Fixed. `bug-echo "VStack with 12+ if-conditional children in one scope"` then found one BUG (a list-row view with 16 conditional children) and three WATCH sites at 10-12. Fixed the BUG with the same split pattern. Total time ~90 minutes.
 
 ## Status
 
-Current version: 1.1.1. Built primarily for Swift/SwiftUI. The pattern construction is language-agnostic; the platform-conditional handling is currently Swift-specific.
+Current version: 1.3.0. Built primarily for Swift/SwiftUI. The pattern construction is language-agnostic; the platform-conditional handling is currently Swift-specific.
 
-**Planned for v1.2+:** a built-in catalog mode for common Swift/SwiftUI anti-patterns (run when there's no recent fix to infer from), JSON sidecar output for chaining into downstream skills, recurrence detection across prior reports (catches bug classes that keep returning despite individual fixes), and a `known-intentional.yaml` user file for explicit suppression of patterns the user has confirmed are not bugs.
+**Planned for future releases:** a built-in catalog mode for common Swift/SwiftUI anti-patterns (run when there's no recent fix to infer from), JSON sidecar output for chaining into downstream skills, recurrence detection across prior reports (catches bug classes that keep returning despite individual fixes), and a `known-intentional.yaml` user file for explicit suppression of patterns the user has confirmed are not bugs.
 
 ## Sibling skills
 

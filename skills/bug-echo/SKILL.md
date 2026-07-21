@@ -4,7 +4,7 @@ description: 'After fixing a bug, find and rate other instances of the same patt
 license: Apache-2.0
 allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Agent]
 metadata:
-  version: 1.3.0
+  version: 1.3.1
   author: Terry Nyberg, Coffee & Code LLC
   tier: execution
   category: debugging
@@ -61,7 +61,7 @@ Before any scanning work, verify the working environment is sane.
 
 ### Freshness rule
 
-Base all findings on the current source tree only. Do not read prior reports in `.agents/research/`, `scratch/`, or auto-memory caches as a source of findings. See § Deferred to v1.3+ for the planned recurrence-detection mode that would cross-reference prior reports.
+Base all findings on the current source tree only. Do not read prior reports in `.agents/research/`, `scratch/`, or auto-memory caches as a source of findings. See § Deferred to v1.4+ for the planned recurrence-detection mode that would cross-reference prior reports.
 
 ### Scale invariants (protect the small-codebase path)
 
@@ -93,7 +93,7 @@ Options:
 - "Cancel". Stop.
 ```
 
-See § Deferred to v1.3+ for the planned catalog-selection mode.
+See § Deferred to v1.4+ for the planned catalog-selection mode.
 
 ---
 
@@ -247,7 +247,7 @@ Run the validated pattern across the codebase.
 2. **Choose the scan strategy based on file count:**
    - **Under 50 files:** Scan directly using Grep with the pattern.
    - **50 to 500 files:** Scan directly. Acceptable performance.
-   - **Over 500 files:** Dispatch sub-agents via the Agent tool. Split files into batches of ~100. Each sub-agent receives the pattern, its file list, and the classification rules from Step 4. Sub-agents return structured findings (matches with file:line context). Aggregate results in the main agent.
+   - **Over 500 files:** Dispatch sub-agents via the Agent tool. Split files into batches of ~100. Follow the sub-agent aggregation contract in Step 3.5 — it defines exactly what each sub-agent receives, what it returns, and how the main agent merges the batches. Do not improvise the merge; a large run's correctness depends on deterministic aggregation.
 
 3. **AST-grep precision (optional, opt-in):**
    - If AST-grep is installed and the language is Swift, run AST-grep against the pattern via Bash for higher precision.
@@ -259,6 +259,48 @@ Run the validated pattern across the codebase.
 
 ---
 
+## Step 3.5: Sub-agent aggregation contract (>500-file branch only)
+
+This step governs the `Over 500 files` branch of Step 3.2 exclusively. **Codebases at or under 500 files never reach it** — they scan directly in the main agent and go straight to Step 4, so nothing here touches the common path (see § Scale invariants). On a large codebase the batched scan is the path that runs on essentially every run, so its merge must be deterministic rather than improvised.
+
+### What each sub-agent receives
+
+Every sub-agent dispatched via the Agent tool gets an identical instruction payload, differing only in its file-list slice:
+
+1. **The validated pattern**, verbatim — the exact regex (or AST-grep query) from Step 2B/2A, not a paraphrase.
+2. **Its ~100-file batch**, as an explicit list of paths. Batches must be disjoint where possible; see the dedup rule below for the overlap case.
+3. **The Step 4 classification rules, copied VERBATIM.** Do not summarize, shorten, or restate the BUG / WATCH / OK / REVIEW definitions. Every sub-agent must classify against byte-identical criteria, or two batches will render different verdicts for the same code shape. Paste the full text of Step 4's classification list (the four definitions and the "classify each match individually" rule) into each sub-agent's prompt.
+4. **The platform-conditional rule** from Step 3.1: honor `#if os(...)` / `#if !os(...)` blocks; code inside an excluded platform branch is not flagged.
+
+### What each sub-agent returns
+
+Each sub-agent returns a structured list — one object per match, no prose wrapper — so the main agent can merge without re-parsing free text. Required fields per match:
+
+```
+{
+  "file": "relative/path/to/File.swift",   // repo-relative, forward slashes
+  "line": 142,                              // 1-indexed line of the match
+  "snippet": "…5-10 lines around the match…",
+  "classification": "BUG",                  // one of BUG | WATCH | OK | REVIEW
+  "rationale": "one sentence: why this classification"
+}
+```
+
+A sub-agent that finds nothing in its batch returns an empty list, not a message.
+
+### How the main agent merges
+
+1. **Concatenate** every sub-agent's list into one candidate set.
+2. **Deduplicate on the `(file, line)` key.** Overlapping globs or a pattern that spans a batch boundary can make two sub-agents report the same site. Keep one entry per `(file, line)`. If the two entries agree on classification, collapse silently. If they **disagree** on classification for the same `(file, line)`, do not pick arbitrarily — this is a consistency failure; handle it in step 3.
+3. **Spot-check for divergent classifications of near-identical shapes.** Beyond exact `(file, line)` collisions, scan the merged set for structurally near-identical sites (same syntactic shape, same surrounding context) that received *different* classifications across batches. For each such divergence, the main agent re-reads both sites (Read tool, 20-line window per Step 4.1) and issues the authoritative classification itself, overriding the sub-agent verdicts. Record in the report header how many divergences were reconciled (e.g., `Cross-batch reconciliations: 2`), so a reader knows the merge was checked, not assumed.
+4. **Carry the reconciled set into Step 4** as if it had come from a direct scan. Step 4's per-match work (the 20-line read, the intentional-usage check) still applies to any match the main agent did not already re-read during reconciliation; matches re-read in step 3 above are already classified and need not be re-read again.
+
+### Failure handling
+
+If a sub-agent dispatch fails or returns malformed output (not the structured shape above), fall back to a sequential scan of that batch in the main agent (per the Troubleshooting row "Sub-agent dispatch fails"). Slower, but the aggregation contract still holds because the main agent produces the same structured entries.
+
+---
+
 ## Step 4: Classify findings
 
 For each match, regardless of how it was found:
@@ -266,7 +308,7 @@ For each match, regardless of how it was found:
 1. **Read the file** at the match location (Read tool), at minimum 20 lines around the match. Multi-platform code may need a wider window to capture surrounding `#if` blocks.
 
 2. **Check for known intentional usages.**
-   - This is in-context judgment by Claude. Common intentional uses (e.g., `try?` in test code where failure is acceptable, force-unwrap of an IBOutlet) are classified as OK. See § Deferred to v1.3+ for the planned `known-intentional.yaml` suppression file.
+   - This is in-context judgment by Claude. Common intentional uses (e.g., `try?` in test code where failure is acceptable, force-unwrap of an IBOutlet) are classified as OK. See § Deferred to v1.4+ for the planned `known-intentional.yaml` suppression file.
 
 3. **Classify** as one of:
    - **BUG:** matches the anti-pattern, correctness issue confirmed in this context.
@@ -398,7 +440,7 @@ For each REVIEW match:
 - `path/to/file.swift:[line]` - [why context is unclear]
 ```
 
-The report is human-readable and self-contained. See § Deferred to v1.3+ for the planned JSON sidecar that would enable downstream skill chaining (e.g., feeding findings into `safe-refactor`).
+The report is human-readable and self-contained. See § Deferred to v1.4+ for the planned JSON sidecar that would enable downstream skill chaining (e.g., feeding findings into `safe-refactor`).
 
 ---
 
@@ -509,6 +551,13 @@ These features are documented for future releases:
 - **Full recurrence detection:** comparing the new report against prior `.agents/research/` reports to detect recurring patterns and suggest architectural fixes. (v1.3.0 shipped the conservative git-history slice of this — the already-swept exclusion in Step 2.5 — which reads commit history, not prior reports. The deferred version is the report-cross-referencing analysis.)
 - **`known-intentional.yaml` user file:** explicit suppression of patterns the user has confirmed are intentional, so they don't surface again.
 - **Multi-language pattern construction beyond Swift:** the current inference works for any language (regex from diff is language-neutral), but a future release may add language-specific tuning.
+
+## v1.3.1 (2026-07-21)
+
+Spec hardening for the large-codebase scan path. No new user-facing capability — this defines behavior that the `Over 500 files` branch already invoked but left under-specified, which is why it's a patch bump rather than a minor. The sub-500-file common path is untouched (see § Scale invariants).
+
+- **Sub-agent aggregation contract (new Step 3.5):** the `Over 500 files` branch of Step 3 previously said only "aggregate results in the main agent." Step 3.5 now specifies exactly what each sub-agent receives (validated pattern verbatim, its file batch, the Step 4 classification rules copied verbatim so every batch judges against identical criteria), what it returns (a structured `{file, line, snippet, classification, rationale}` list, not prose), and how the main agent merges: deduplicate on the `(file, line)` key, then spot-check for near-identical code shapes that got different verdicts across batches and re-classify those authoritatively. Prevents cross-batch duplicates and inconsistent classifications on runs that split into multiple sub-agents. Applies only in the >500-file branch.
+- **Doc fix:** corrected four stale `§ Deferred to v1.3+` cross-references (they pointed at a section retitled to v1.4+ in the v1.3.0 release, leaving the anchors dangling).
 
 ## v1.3.0 (2026-07-21)
 

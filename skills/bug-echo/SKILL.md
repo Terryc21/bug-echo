@@ -554,6 +554,12 @@ These features are documented for future releases:
 - **`known-intentional.yaml` user file:** explicit suppression of patterns the user has confirmed are intentional, so they don't surface again.
 - **Multi-language pattern construction beyond Swift:** the current inference works for any language (regex from diff is language-neutral), but a future release may add language-specific tuning.
 
+## v1.3.3 (2026-08-06)
+
+Release-metadata fix. No behavior change — the skill's logic is identical to v1.3.2.
+
+- **`plugin.json` version corrected: `1.1.1` → `1.3.3`.** The manifest was never bumped across the v1.2.0, v1.3.0, v1.3.1, or v1.3.2 releases — it still read `1.1.1` at the very commit tagged `v1.3.2`. Consequences: the marketplace installed to a `bug-echo/1.1.1` path while serving v1.3.2 behavior, and any tool that reads the manifest (`claude plugin validate`, an update checker, a marketplace listing) reported a version four releases stale, so there was no reliable way to tell whether an install was current. Found 2026-08-06 while auditing the skill after two production runs. Shipped as a new patch release rather than re-pointing the `v1.3.2` tag, since that tag is already published and rewriting it would break anyone pinned to it.
+
 ## v1.3.2 (2026-07-21)
 
 Correctness guard against a self-referential inference loop. Universal (not size-gated) and inert unless it applies.

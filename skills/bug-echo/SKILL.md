@@ -4,7 +4,7 @@ description: 'After fixing a bug, find and rate other instances of the same patt
 license: Apache-2.0
 allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Agent]
 metadata:
-  version: 1.3.2
+  version: 1.3.4
   author: Terry Nyberg, Coffee & Code LLC
   tier: execution
   category: debugging
@@ -35,9 +35,9 @@ bug-echo also runs standalone when you describe the pattern manually (Step 2A be
 
 ---
 
-**YOU MUST EXECUTE THIS WORKFLOW. Do not just describe it.**
+This is a workflow to run, not a procedure to summarize. The user invoked it because they want the scan performed and the findings in hand; a description of what bug-echo would do leaves them exactly where they started.
 
-**Required output:** Every BUG finding MUST include Urgency, Risk of Fixing, Risk of Not Fixing, ROI, Blast Radius, and Fix Effort using the 9-column Issue Rating Table format defined in Step 5. Findings missing any of the six dimensions are invalid.
+**Rate every BUG finding on all six dimensions** — Urgency, Risk of Fixing, Risk of Not Fixing, ROI, Blast Radius, and Fix Effort — using the Issue Rating Table in Step 5. The six exist because "here are 14 bugs" is not actionable: the user has to decide what to fix before the next release and what to leave. A finding missing Risk of Not Fixing or Blast Radius can't be triaged against the others, so it silently drops out of that decision no matter how real the bug is.
 
 This skill uses Claude's native tools only. No external scripts or pattern catalogs. AST-grep is optional; if it is installed, prefer it for higher precision on Swift, otherwise fall back to regex via the Grep tool.
 
@@ -61,18 +61,13 @@ Before any scanning work, verify the working environment is sane.
 
 ### Freshness rule
 
-Base all findings on the current source tree only. Do not read prior reports in `.agents/research/`, `scratch/`, or auto-memory caches as a source of findings. See § Deferred to v1.4+ for the planned recurrence-detection mode that would cross-reference prior reports.
+Base all findings on the current source tree only. Do not read prior reports in `.agents/research/`, `scratch/`, or auto-memory caches as a source of findings. A prior report describes a tree that has since changed; treating it as evidence means reporting bugs that may already be fixed, which is the fastest way to make the output untrustworthy.
 
-### Scale invariants (protect the small-codebase path)
+### Scale gates
 
-bug-echo must run identically on a 20-file package and a 5,000-file app *on the common path*. Large-codebase handling is always a branch entered by an explicit threshold, never a tax on the default flow. Any future edit MUST preserve these invariants:
+Three features in this skill are gated on absolute counts, not on repo size: the already-swept exclusion (Step 2.5, ≥6 candidates *and* prior `bug-echo:` commits), the high-count tighten offer (Step 2.5, ≥25 candidates), and sub-agent dispatch (Step 3, >500 files). Below its gate, each is a no-op.
 
-1. **The sub-500-file scan path is untouched by scale logic.** File-count branching lives only in Step 3; a repo under 500 files scans directly and never enters sub-agent dispatch, dedup-across-batches, or any large-repo accommodation.
-2. **Count-gated features are inert below their threshold.** The already-swept exclusion (Step 2.5, gated ≥6 candidates + prior bug-echo commits) and the high-count tighten offer (Step 2.5, gated ≥25 candidates) must be no-ops below their gates. A small or first-ever run may make at most one cheap, empty `git log` call and must otherwise behave exactly as v1.2 did.
-3. **Thresholds are absolute, not relative to repo size.** The 25-match tighten offer keys off raw match count, not a fraction of files, so it never fires spuriously on a small codebase where a pattern legitimately repeats.
-4. **No feature promotes a large-codebase branch to the default.** Sub-agent dispatch, git-history reads, and pattern-tightening prompts are opt-in-by-threshold. Making any of them unconditional is a regression, not an enhancement.
-
-If you add scale handling, gate it and add it to this list. A change that makes the small-codebase path slower or more talkative has failed review regardless of what it does for large repos.
+Treat those gates as real thresholds rather than hints. A small repo should feel exactly as fast and as quiet as it did before any of them existed — reaching for a large-codebase accommodation on a 40-file package spends the user's time defending against a problem they don't have.
 
 ---
 
@@ -93,7 +88,7 @@ Options:
 - "Cancel". Stop.
 ```
 
-See § Deferred to v1.4+ for the planned catalog-selection mode.
+There is deliberately no third "pick from a catalog of known anti-patterns" mode. A catalog tells you what tends to be a bug in general; a fix tells you what *is* a bug here. If neither mode applies, see § When inference fails below.
 
 ---
 
@@ -220,7 +215,7 @@ On "Tighten first": present the current regex/AST pattern, propose one or two na
 
 This guard directly addresses the "heavily overloaded with false positives" case in the README's Honest Limits, moving the tightening decision *before* the expensive per-site classification rather than after.
 
-**Why the buckets matter.** Across 18 real bug-echo runs on a 600-file Swift project, 3 found zero real bugs after the full ceremony and another 4 found 1-3. In those 7 cases (~39% of runs), the full `.agents/research/` write was over-spend — the report's structure carried more weight than the findings did. The recon-scout step matches output shape to actual signal.
+**Why the buckets matter.** Across 18 real bug-echo runs on a 600-file Swift project, 3 found zero real bugs after the full ceremony and another 4 found 1-3. In those 7 cases (~39% of runs), the full `.agents/research/` write was over-spend — the report's structure carried more weight than the findings did. The recon-scout step matches output shape to actual signal. (Run-by-run data, and the limits of an N=18 single-codebase sample, are in [recon-scout-rationale.md](examples/recon-scout-rationale.md).)
 
 **When to override the bucket:**
 
@@ -310,7 +305,7 @@ For each match, regardless of how it was found:
 1. **Read the file** at the match location (Read tool), at minimum 20 lines around the match. Multi-platform code may need a wider window to capture surrounding `#if` blocks.
 
 2. **Check for known intentional usages.**
-   - This is in-context judgment by Claude. Common intentional uses (e.g., `try?` in test code where failure is acceptable, force-unwrap of an IBOutlet) are classified as OK. See § Deferred to v1.4+ for the planned `known-intentional.yaml` suppression file.
+   - This is in-context judgment by Claude. Common intentional uses (e.g., `try?` in test code where failure is acceptable, force-unwrap of an IBOutlet) are classified as OK. There is no suppression file to consult — every run re-judges from the source, so a usage that was intentional last month still has to read as intentional today.
 
 3. **Classify** as one of:
    - **BUG:** matches the anti-pattern, correctness issue confirmed in this context.
@@ -393,6 +388,8 @@ Write the report directly to `<output_dir>/YYYY-MM-DD-bug-echo-<slug>.md` using 
 
 The Status column is `Open` on first display. After fixes are applied, the column updates to `Fixed`, `Deferred`, or `Skipped`.
 
+**On the missing `Target` column.** Some Issue Rating Table conventions carry a tenth `Target` column naming the file or component. bug-echo deliberately omits it: every finding here is a single match site whose `file:line` is printed directly beneath the table in the detailed findings, so a Target column would restate what the row already points at. If you are reconciling a bug-echo report against a project convention that expects Target, read the detailed-findings path as that column.
+
 ### Detailed findings
 
 For each BUG finding:
@@ -414,7 +411,7 @@ WATCH findings use the same Issue Rating Table shape as BUG, but typically with 
 
 ### Issue Rating Table
 
-Same 9 columns as BUG. Urgency is typically ⚪ LOW or 🟢 MEDIUM.
+Same columns as the BUG table above. Urgency is typically ⚪ LOW or 🟢 MEDIUM.
 
 ### Detailed findings
 
@@ -442,7 +439,7 @@ For each REVIEW match:
 - `path/to/file.swift:[line]` - [why context is unclear]
 ```
 
-The report is human-readable and self-contained. See § Deferred to v1.4+ for the planned JSON sidecar that would enable downstream skill chaining (e.g., feeding findings into `safe-refactor`).
+The report is human-readable and self-contained — write it for a person, not for a parser. There is no machine-readable sidecar, so don't emit one alongside it.
 
 ---
 
@@ -542,46 +539,3 @@ The frontmatter declares two metadata keys for cross-skill coordination across C
   - Other current values in the family: `architecture`, `release-prep`, `documentation`, `ui-audit`, `data-model`.
 
 These keys are descriptive metadata only — no router currently reads them at activation time. They exist so users browsing multiple companion skills can recognize the workflow stage at a glance. If a future router or skill-family index starts reading them, the canonical list lives in the radar-suite README.
-
----
-
-## Deferred to v1.4+
-
-These features are documented for future releases:
-
-- **JSON sidecar:** machine-readable output alongside the Markdown report, for chaining into downstream skills.
-- **Full recurrence detection:** comparing the new report against prior `.agents/research/` reports to detect recurring patterns and suggest architectural fixes. (v1.3.0 shipped the conservative git-history slice of this — the already-swept exclusion in Step 2.5 — which reads commit history, not prior reports. The deferred version is the report-cross-referencing analysis.)
-- **`known-intentional.yaml` user file:** explicit suppression of patterns the user has confirmed are intentional, so they don't surface again.
-- **Multi-language pattern construction beyond Swift:** the current inference works for any language (regex from diff is language-neutral), but a future release may add language-specific tuning.
-
-## v1.3.3 (2026-08-06)
-
-Release-metadata fix. No behavior change — the skill's logic is identical to v1.3.2.
-
-- **`plugin.json` version corrected: `1.1.1` → `1.3.3`.** The manifest was never bumped across the v1.2.0, v1.3.0, v1.3.1, or v1.3.2 releases — it still read `1.1.1` at the very commit tagged `v1.3.2`. Consequences: the marketplace installed to a `bug-echo/1.1.1` path while serving v1.3.2 behavior, and any tool that reads the manifest (`claude plugin validate`, an update checker, a marketplace listing) reported a version four releases stale, so there was no reliable way to tell whether an install was current. Found 2026-08-06 while auditing the skill after two production runs. Shipped as a new patch release rather than re-pointing the `v1.3.2` tag, since that tag is already published and rewriting it would break anyone pinned to it.
-
-## v1.3.2 (2026-07-21)
-
-Correctness guard against a self-referential inference loop. Universal (not size-gated) and inert unless it applies.
-
-- **Guard against inferring from bug-echo's own fix commit (Step 2B):** when the diff source falls back to the most recent commit (`git log -p -1`) and that commit's subject starts with `bug-echo:` (the prefix Step 6 uses for applied-fix commits), Step 2B no longer infers a pattern from it — doing so would just re-derive the pattern those fixes already resolved. It now falls back to Step 2A (described mode) with a short explanation and a pointer to name a different fix. Applies only to the most-recent-commit source; staged and unstaged diffs are genuine new work and are never blocked.
-
-## v1.3.1 (2026-07-21)
-
-Spec hardening for the large-codebase scan path. No new user-facing capability — this defines behavior that the `Over 500 files` branch already invoked but left under-specified, which is why it's a patch bump rather than a minor. The sub-500-file common path is untouched (see § Scale invariants).
-
-- **Sub-agent aggregation contract (new Step 3.5):** the `Over 500 files` branch of Step 3 previously said only "aggregate results in the main agent." Step 3.5 now specifies exactly what each sub-agent receives (validated pattern verbatim, its file batch, the Step 4 classification rules copied verbatim so every batch judges against identical criteria), what it returns (a structured `{file, line, snippet, classification, rationale}` list, not prose), and how the main agent merges: deduplicate on the `(file, line)` key, then spot-check for near-identical code shapes that got different verdicts across batches and re-classify those authoritatively. Prevents cross-batch duplicates and inconsistent classifications on runs that split into multiple sub-agents. Applies only in the >500-file branch.
-- **Doc fix:** corrected four stale `§ Deferred to v1.3+` cross-references (they pointed at a section retitled to v1.4+ in the v1.3.0 release, leaving the anchors dangling).
-
-## v1.3.0 (2026-07-21)
-
-Large-codebase hardening. All three additions are threshold-gated branches; the sub-500-file common path is unchanged from v1.2.0. See the new § Scale invariants (Pre-flight) for the guarantee. Rationale and traced examples for the whole v1.3.x hardening arc (through 1.3.2): [large-codebase-hardening-rationale.md](examples/large-codebase-hardening-rationale.md).
-
-- **Already-swept exclusion (Step 2.5):** on a large codebase swept across multiple sessions, sites fixed-and-committed in a prior bug-echo run no longer resurface as fresh candidates. Gated to fire only at ≥6 candidates *and* when the repo has prior `bug-echo:` commits; below the gate it is a single empty `git log` call. Cross-references git commit history (ground truth of what was fixed), capped at the 50 most recent `bug-echo:` commits so cost is bounded by commit count, not calendar time. Re-reads live source before excluding, so a reintroduced pattern is still caught — git only says *where to look*, never "already fixed."
-- **High-count tighten offer (Step 2.5):** when a validated pattern returns ≥25 candidates (an absolute threshold, not relative to repo size), offers to tighten the pattern before classifying, rather than grinding through hundreds of mostly-OK sites. Directly addresses the "heavily overloaded with false positives" limit. Below 25, never shown.
-- **Scale invariants (Pre-flight):** a standing contract that large-codebase logic must stay threshold-gated and the small-codebase path must remain untouched, so future edits can't quietly tax the common case.
-
-## v1.2.0 (2026-06-06)
-
-- **Recon scout (Step 2.5):** new pre-flight count between pattern validation and full scan. Buckets candidate count into 0 / 1-5 / 6+ and matches report shape to actual signal. Catches the case where the original fix was already localized (one-line note in conversation, no `.agents/research/` write) and the case where there are 1-5 sibling instances (lightweight inline report). Reserves the full file-write ceremony for 6+ candidates where the structured report carries its weight. Origin: 18-run retrospective on a 600-file Swift codebase showed ~39% of runs would benefit from a lighter-weight report shape. See [recon-scout-rationale.md](examples/recon-scout-rationale.md) for the full evidence.
-- **Conditions form in Step 2A:** suggested form for describing multi-condition pattern shapes (e.g., "Identifiable struct + ephemeral constructor + ForEach consumer"). Optional; free-form prose still works. Helps users articulate patterns that only fire when 2-3 conditions hold together — the most common shape for false-positive-prone bugs.

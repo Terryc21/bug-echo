@@ -1,0 +1,82 @@
+[
+  {
+    "query": "ok so i just fixed a thing in CardDetailView.swift where we were doing `try? context.fetch(descriptor)` and swallowing the error \u2014 swapped it for a do/catch that logs. pretty sure i've written that same try? fetch thing in a bunch of other places over the years. can you go look?",
+    "should_trigger": true
+  },
+  {
+    "query": "just pushed a commit that fixes the retain cycle in NotificationCoordinator (was capturing self strongly in the observer closure). before i close the ticket i want to know if the same capture pattern is anywhere else in Sources/",
+    "should_trigger": true
+  },
+  {
+    "query": "i've now fixed this identical off-by-one in the pagination math three separate times in three different files this month. i'm done playing whack-a-mole \u2014 find me every remaining instance",
+    "should_trigger": true
+  },
+  {
+    "query": "we shipped a hotfix last night for the crash where a SwiftData model was constructed with `let id = UUID()` inside a computed var feeding a ForEach. Stuffolio is ~600 files. can you sweep for the same shape and rate what you find so i know what's release-blocking for build 36?",
+    "should_trigger": true
+  },
+  {
+    "query": "echo this fix",
+    "should_trigger": true
+  },
+  {
+    "query": "before I mark UNFORGET A67 as Fixed I want to generalize it \u2014 the fix replaced a per-participant .permission write with publicPermission on the CKShare. where else do we write per-participant permissions?",
+    "should_trigger": true
+  },
+  {
+    "query": "fixed the force-unwrap crash in ExportService.swift:212. is this pattern anywhere else in the codebase or was it a one-off?",
+    "should_trigger": true
+  },
+  {
+    "query": "my teammate fixed a bug on main last week where async work inside a forEach wasn't awaited \u2014 the loop finished before the writes did. we're on a react/typescript monorepo. can you find other places we do the same thing?",
+    "should_trigger": true
+  },
+  {
+    "query": "audit this file for anything that might break in the future \u2014 i haven't seen a bug yet but this StoreKit transaction handler makes me nervous",
+    "should_trigger": false
+  },
+  {
+    "query": "find bugs in Sources/Features/Sharing/",
+    "should_trigger": false
+  },
+  {
+    "query": "the app crashes when i tap Share on iPad but not iPhone. figure out why",
+    "should_trigger": false
+  },
+  {
+    "query": "i just fixed the typo in the onboarding copy \u2014 'recieve' to 'receive'. commit it for me",
+    "should_trigger": false
+  },
+  {
+    "query": "run swiftlint across the project and fix whatever it flags",
+    "should_trigger": false
+  },
+  {
+    "query": "review my PR before i merge it \u2014 4 files changed, mostly the new AppleCare expiry logic",
+    "should_trigger": false
+  },
+  {
+    "query": "we keep getting the same three support emails about photos not syncing. can you look at the sync code and tell me what's wrong",
+    "should_trigger": false
+  },
+  {
+    "query": "add tests for the CKRecordMapper inventory field \u2014 we had a bug there in July that went undetected",
+    "should_trigger": false
+  },
+  {
+    "query": "i refactored ItemDetailView into three smaller views yesterday. does the same god-view problem exist elsewhere?",
+    "should_trigger": true
+  },
+  {
+    "query": "what's the difference between bug-echo and bug-prospector? which one should i be running after a hotfix",
+    "should_trigger": false
+  },
+  {
+    "query": "scan for similar bugs",
+    "should_trigger": true
+  },
+  {
+    "query": "delete the old CloudKitLegacyImporter.swift file, we fixed the duplicate-syncID bug and it's dead code now",
+    "should_trigger": false
+  }
+]

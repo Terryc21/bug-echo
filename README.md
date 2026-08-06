@@ -285,9 +285,24 @@ A real chain example: an iPhone-only crash deferred for a month was marked Fixed
 
 ## Status
 
-Current version: 1.3.0. Built primarily for Swift/SwiftUI. The pattern construction is language-agnostic; the platform-conditional handling is currently Swift-specific.
+Current version: 1.3.4. Built primarily for Swift/SwiftUI. The pattern construction is language-agnostic; the platform-conditional handling is currently Swift-specific.
+
+Release history is in [CHANGELOG.md](CHANGELOG.md).
 
 **Planned for future releases:** a built-in catalog mode for common Swift/SwiftUI anti-patterns (run when there's no recent fix to infer from), JSON sidecar output for chaining into downstream skills, recurrence detection across prior reports (catches bug classes that keep returning despite individual fixes), and a `known-intentional.yaml` user file for explicit suppression of patterns the user has confirmed are not bugs.
+
+v1.3.0 shipped the conservative git-history slice of recurrence detection — the already-swept exclusion in Step 2.5, which reads commit history rather than prior reports. The deferred half is the report-cross-referencing analysis.
+
+## Contributing: scale invariants
+
+bug-echo must run identically on a 20-file package and a 5,000-file app *on the common path*. Large-codebase handling is always a branch entered by an explicit threshold, never a tax on the default flow. Any edit to `SKILL.md` must preserve these invariants:
+
+1. **The sub-500-file scan path is untouched by scale logic.** File-count branching lives only in Step 3; a repo under 500 files scans directly and never enters sub-agent dispatch, dedup-across-batches, or any large-repo accommodation.
+2. **Count-gated features are inert below their threshold.** The already-swept exclusion (Step 2.5, gated ≥6 candidates + prior bug-echo commits) and the high-count tighten offer (Step 2.5, gated ≥25 candidates) must be no-ops below their gates. A small or first-ever run may make at most one cheap, empty `git log` call and must otherwise behave exactly as v1.2 did.
+3. **Thresholds are absolute, not relative to repo size.** The 25-match tighten offer keys off raw match count, not a fraction of files, so it never fires spuriously on a small codebase where a pattern legitimately repeats.
+4. **No feature promotes a large-codebase branch to the default.** Sub-agent dispatch, git-history reads, and pattern-tightening prompts are opt-in-by-threshold. Making any of them unconditional is a regression, not an enhancement.
+
+If you add scale handling, gate it and add it to this list. A change that makes the small-codebase path slower or more talkative has failed review regardless of what it does for large repos.
 
 ## Sibling skills
 

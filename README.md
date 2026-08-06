@@ -81,25 +81,35 @@ Many people run both: bug-prospector before releases, bug-echo after every fix.
 
 ## Install
 
-Two commands in Claude Code, run one at a time:
+These go into Claude Code itself, typed at the prompt where you'd normally ask it a question. Not Terminal.
+
+**First**, add this repository as a source:
 
 ```
 /plugin marketplace add Terryc21/bug-echo
 ```
 
+You'll see a confirmation that the marketplace was added.
+
+**Then**, install the plugin:
+
 ```
 /plugin install bug-echo@bug-echo
 ```
 
-> **Why two separate commands?** If you paste both at once, Claude Code's command reader mistakes the second `/plugin` for part of the first and fails with a confusing "SSH authentication failed" message. Run them one at a time and it works.
+Run these one at a time. If you paste both at once, Claude Code reads the second line as part of the first command and fails with a confusing "SSH authentication failed" message.
 
-The easiest way to try it: wait for your next real bug fix, save it (commit or stage it in git), then run:
+**To check it worked:** type `/` and look for `bug-echo` in the list that appears.
+
+The easiest way to try it: wait until you next fix a real bug, save that fix to git (commit it, or just stage it), then run:
 
 ```
 /bug-echo
 ```
 
-You'll get a real report you can act on in about 2 minutes.
+It reads your fix, works out what the underlying pattern was, and looks for other places in your project with the same pattern. You'll have a report you can act on in about two minutes.
+
+Worth knowing before you start: bug-echo needs a git repository, and it works best right after a real fix — that fix is the evidence it learns the pattern from.
 
 ### Optional: install bug-prospector too
 

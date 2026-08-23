@@ -1,0 +1,70 @@
+{
+  "fixture": "swift-try-fetch",
+  "language": "swift",
+  "pattern": "try? on a store fetch, discarding the error",
+  "seed_fix_file": "src/SettingsStore.swift",
+  "scan_scope": "src/**/*.swift",
+
+  "tolerance": {
+    "strict_pairs": [["BUG", "OK"], ["OK", "BUG"], ["BUG", "CANON"], ["CANON", "BUG"], ["OK", "CANON"], ["CANON", "OK"]],
+    "lenient_pairs": [["BUG", "WATCH"], ["WATCH", "BUG"], ["WATCH", "OK"], ["OK", "WATCH"]],
+    "rationale": "A BUG scored OK (or the reverse) is a real miss and always fails. CANON must be exact -- the whole point of the label is naming the reference, and naming the wrong one is worse than naming none. WATCH boundaries are honest judgment calls: reported as notes, never failures."
+  },
+
+  "sites": [
+    {
+      "file": "src/ItemStore.swift",
+      "line": 22,
+      "expect": "BUG",
+      "because": "Step 4 -- matches the anti-pattern; a failed fetch is indistinguishable from an empty store and the caller renders 'no items' on a load failure."
+    },
+    {
+      "file": "src/CardView.swift",
+      "line": 19,
+      "expect": "BUG",
+      "because": "Step 4 -- identical shape to the seed fix; the sibling copy that survived when the original was fixed. This is the site the whole sweep exists to find."
+    },
+    {
+      "file": "src/SafeStore.swift",
+      "line": 24,
+      "expect": "CANON",
+      "optional": true,
+      "because": "Step 4 OK (CANON) -- correct AND it is the shape the BUG sites should converge on: the error is caught, logged, and distinguished from an empty result.",
+      "note": "OPTIONAL BY CONSTRUCTION. This line is `try context.fetch` (no `?`), so a pattern built narrowly from the seed's removed line (`try? ... .fetch`) will not match it and the site never enters classification. That is CORRECT behavior, not a miss -- SKILL.md Step 2B explicitly warns against over-broad patterns. Scored as: if the site appears in the report it MUST be CANON (never BUG/OK); if it is absent, that is a pass with a note. A run that surfaces it has built a `context.fetch`-shaped pattern and found the reference; a run that doesn't has built a tighter `try?`-shaped one. Both are defensible."
+    },
+    {
+      "file": "src/ItemStoreTests.swift",
+      "line": 13,
+      "expect": "OK",
+      "because": "Step 4.2 known intentional usage -- test code where a failed fetch is an acceptable outcome and the optional IS the assertion target."
+    },
+    {
+      "file": "src/ItemStoreTests.swift",
+      "line": 21,
+      "expect": "OK",
+      "because": "Step 4.2 known intentional usage -- same reasoning; the test asserts the call does not trap."
+    },
+    {
+      "file": "src/PrefetchCache.swift",
+      "line": 25,
+      "expect": "WATCH",
+      "also_accept": ["BUG"],
+      "because": "Step 4 WATCH -- the error is still discarded, but the consequence is bounded: a non-authoritative cache warm whose authoritative read (ItemStore.loadAll) runs regardless. Deliberately the gray-zone site."
+    }
+  ],
+
+  "must_not_flag": [
+    {
+      "file": "src/Support.swift",
+      "line": 36,
+      "because": "try? on Data(contentsOf:), not a store fetch. A scan that flags this has generalized past the seeded fix to bare `try?`. Any classification other than absent-or-OK means the pattern was built too broadly."
+    },
+    {
+      "file": "src/SettingsStore.swift",
+      "because": "The seed site. The fix is applied at HEAD, so the pattern should produce zero matches here (SKILL.md Step 2.5.3 excludes the just-fixed site)."
+    }
+  ],
+
+  "expected_recon_bucket": "1-5",
+  "expected_recon_note": "A `try? ... .fetch` pattern matches exactly 5 sites (ItemStore:22, CardView:19, ItemStoreTests:13, ItemStoreTests:21, PrefetchCache:25), excluding the already-fixed seed. That is the 1-5 inline bucket, so a correct run renders an inline table and writes NO .agents/research/ file. A run that writes a report file has either mis-bucketed or been explicitly overridden. A recon count of 6+ means the pattern generalized past `.fetch` and is picking up the Support.swift decoy -- check the must_not_flag list."
+}

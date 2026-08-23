@@ -4,7 +4,7 @@ description: 'After fixing a bug, find and rate other instances of the same patt
 license: Apache-2.0
 allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Agent]
 metadata:
-  version: 1.4.3
+  version: 1.5.0
   author: Terry Nyberg, Coffee & Code LLC
   tier: execution
   category: debugging

@@ -3,6 +3,42 @@
 All notable changes to bug-echo. Version numbers match the `metadata.version` field in
 `skills/bug-echo/SKILL.md` and the `version` field in `.claude-plugin/plugin.json`.
 
+## v1.5.0 (2026-08-23)
+
+First test of whether bug-echo's **judgment** is correct, rather than whether it activates.
+
+- **`fixtures/swift-try-fetch/`** — a small fake Swift project where every answer is known in
+  advance: two real BUGs, two genuine OKs that match the pattern textually, one CANON site, one
+  deliberate gray-zone WATCH, and a decoy (`try?` on a file read, not a store fetch) that an
+  over-broad pattern would wrongly flag.
+- **`fixtures/setup.sh`** — materializes the fixture as a throwaway git repo with real history:
+  commits the seed file buggy, fixes it, commits again. bug-echo's primary mode reads
+  `git log -p -1` and self-validates against `git show HEAD~1:...`, so a fixture without
+  commits cannot exercise it. Builds outside this repo so a run can never dirty bug-echo's own
+  tree, and refuses to delete a destination it did not create.
+- **`fixtures/score.py`** — compares verdicts only, never prose, because an LLM-driven skill
+  produces different wording every run. The tolerance rule lives in each answer key: BUG↔OK and
+  anything↔CANON always fail; BUG↔WATCH and WATCH↔OK are notes. A flaky suite gets ignored,
+  which is worse than no suite.
+- **Every run prints its own scope** — "verified on SWIFT only (6 sites, 1 fixture)". A green
+  result must not be read as "classification works" when it means "classification works on
+  Swift." Same discipline as the `evals/README.md` scope statement and the examples' version
+  stamps.
+
+Harness verified in both directions before being trusted: a correct report passes 6/6; an
+all-OK report fails on three strict misses; a WATCH scored BUG passes as a judgment call; the
+decoy flagged as BUG fails. ⚠️ The positive control **failed on its first run** and caught a
+real parser bug — `**Reference implementation:**` usually sits directly under a `## BUG
+Findings` heading, so a backward scan scored the CANON site as BUG. A harness tested only
+against passing input would have shipped that.
+
+Two wrong line numbers in the first answer key were found the same way, by grepping the
+materialized fixture rather than the source as written. `fixtures/README.md` carries that as a
+standing warning for anyone adding a fixture.
+
+**Not covered:** any language but Swift, and the three scale-gated paths (>500 files, ≥25
+tighten offer, ≥6 already-swept exclusion). Those need fixtures far larger than this one.
+
 ## v1.4.3 (2026-08-23)
 
 Examples-hygiene pass. No behavior change.

@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "bug-echo",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "source": "./",
       "description": "After fixing a bug, finds and rates other instances of the same anti-pattern. Self-validates the constructed pattern against the pre-fix file before scanning. Each match is classified individually as BUG / WATCH / OK / REVIEW.",
       "author": {

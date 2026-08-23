@@ -23,20 +23,30 @@ Reviewed 18 bug-echo runs against a 600-file production Swift codebase (Stuffoli
 |---|---|---|---|
 | protection-class-mismatch | 8 | **0** | 79 |
 | try-fetch-rollback | 4 | **0** | 102 |
-| deep-viewbuilder-crash | 4 | **0** | 245 |
+| deep-viewbuilder-crash | 4 | 1 (+3 WATCH) | 245 |
 | nested-navstack-macos-detail-pane | 14 | 1 | 88 |
 | swiftui-typecheck-complexity | 601 (broad) | 1 | 105 |
 | 7-pattern-sweep | varied | 1 | 80 |
 | labeledurl-drift-class-followup | 16 | 2 | 215 |
-| (11 more runs) | ... | 3-66 | 88-261 |
+| (11 more runs) | ... | 4-66 | 88-261 |
+
+> ⚠️ **Corrected 2026-08-23.** The `deep-viewbuilder-crash` row read **0** confirmed BUGs
+> until this correction. Its own report — [2026-05-03-bug-echo-deep-viewbuilder-crash.md](2026-05-03-bug-echo-deep-viewbuilder-crash.md),
+> in this same directory — states `BUG findings: 1` and carries a rated 🟡 HIGH row for
+> `RMARow.body`, fixed the same day. The likely cause is that the run's *other* three hits
+> were WATCH and the tabulation collapsed "mostly WATCH" to zero; but this column counts
+> confirmed BUGs post-classification, and that value is 1. The row moves out of the
+> zero-bucket and into the 1-3 bucket, which changes two of the three percentages below.
+> **It does not change the 39% headline** — the run was already on the mismatch side of the
+> line, just in the adjacent bucket.
 
 **The crux:**
 
-- **3 runs (17%)** found zero bugs after a full report. The structure carried more weight than the findings did.
-- **4 more runs (22%)** found 1-3 bugs. The full report's OK/REVIEW/WATCH sections, exception lists, and detailed scaffolding overshot the actual scope.
+- **2 runs (11%)** found zero bugs after a full report. The structure carried more weight than the findings did.
+- **5 more runs (28%)** found 1-3 bugs. The full report's OK/REVIEW/WATCH sections, exception lists, and detailed scaffolding overshot the actual scope.
 - **The remaining 11 runs (61%)** found 4+ bugs where the full report's structure pulled its weight.
 
-That's a 39% mismatch between report shape and finding density — high enough that matching shape to signal was worth a structural change.
+That's a 39% mismatch between report shape and finding density — high enough that matching shape to signal was worth a structural change. (7 of 18 runs, unchanged by the correction above: the corrected row was and remains on the mismatch side.)
 
 ## The design
 
@@ -68,7 +78,7 @@ These overrides are noted in the SKILL.md Step 2.5 specification.
 
 To validate this change after a v1.2 adoption period:
 
-- Does the 0-bucket rate stay around 17%, or do users start running bug-echo on patterns they wouldn't have before (because the cost is now lower)?
+- Does the 0-bucket rate stay around 11%, or do users start running bug-echo on patterns they wouldn't have before (because the cost is now lower)?
 - Do users running 1-5 bucket follow-ups in conversation report better fix outcomes than the same pattern in a written report would have produced?
 - Does the 6+ bucket continue to use the full ceremony, or does the smaller threshold cause feature drift where written reports get reserved for 20+ findings only?
 

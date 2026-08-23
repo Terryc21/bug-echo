@@ -4,7 +4,7 @@ description: 'After fixing a bug, find and rate other instances of the same patt
 license: Apache-2.0
 allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Agent]
 metadata:
-  version: 1.4.0
+  version: 1.4.1
   author: Terry Nyberg, Coffee & Code LLC
   tier: execution
   category: debugging
@@ -215,7 +215,7 @@ On "Tighten first": present the current regex/AST pattern, propose one or two na
 
 This guard directly addresses the "heavily overloaded with false positives" case in the README's Honest Limits, moving the tightening decision *before* the expensive per-site classification rather than after.
 
-**Why the buckets matter.** Across 18 real bug-echo runs on a 600-file Swift project, 3 found zero real bugs after the full ceremony and another 4 found 1-3. In those 7 cases (~39% of runs), the full `.agents/research/` write was over-spend — the report's structure carried more weight than the findings did. The recon-scout step matches output shape to actual signal. (Run-by-run data, and the limits of an N=18 single-codebase sample, are in [recon-scout-rationale.md](examples/recon-scout-rationale.md).)
+**Why the buckets matter.** Across 18 real bug-echo runs on a 600-file Swift project, 2 found zero real bugs after the full ceremony and another 5 found 1-3. In those 7 cases (~39% of runs), the full `.agents/research/` write was over-spend — the report's structure carried more weight than the findings did. The recon-scout step matches output shape to actual signal. (Run-by-run data, and the limits of an N=18 single-codebase sample, are in [recon-scout-rationale.md](examples/recon-scout-rationale.md).)
 
 **When to override the bucket:**
 

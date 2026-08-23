@@ -1,6 +1,6 @@
 {
   "name": "bug-echo",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "After you fix a bug, find and rate other instances of the same pattern in the codebase. Two modes: inferred from your recent fix (self-validates the constructed pattern against the pre-fix file before scanning) or user-described. Each match is read in context and classified individually as BUG / WATCH / OK / REVIEW with severity, fix effort, and blast-radius columns. Pattern matching after a real fix is dramatically more accurate than pattern matching from a theoretical catalog.",
   "author": {
     "name": "Terry Nyberg"

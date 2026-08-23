@@ -3,6 +3,29 @@
 All notable changes to bug-echo. Version numbers match the `metadata.version` field in
 `skills/bug-echo/SKILL.md` and the `version` field in `.claude-plugin/plugin.json`.
 
+## v1.4.1 (2026-08-23)
+
+Corrects a factual error in the Step 2.5 evidence. No behavior change.
+
+- **`deep-viewbuilder-crash` recorded 0 confirmed BUGs; the actual value is 1.** The run's
+  own report in the same directory states `BUG findings: 1` and carries a rated 🟡 HIGH row
+  for `RMARow.body`, fixed the same day. The likely cause is that the run's other three hits
+  were WATCH and the tabulation collapsed "mostly WATCH" to zero — but the column counts
+  confirmed BUGs post-classification, and that value is 1.
+- **Two derived percentages move; the headline does not.** The zero-bug bucket goes 3 runs
+  (17%) → 2 runs (11%), and the 1-3 bucket goes 4 (22%) → 5 (28%). The **39% shape/signal
+  mismatch that justifies Step 2.5 is unchanged** — 7 of 18 runs either way, because the
+  corrected row was already on the mismatch side of the line, just in the adjacent bucket.
+- **The stale split had propagated into `SKILL.md:218`** ("3 found zero real bugs and another
+  4 found 1-3"), which is loaded on every run. Corrected there too. The 39% figures in
+  `README.md` and this changelog were already right and are untouched.
+- The `(11 more runs)` BUG-yield range read `3-66`, which overlapped the "4+ bugs" partition
+  it belongs to. Corrected to `4-66`.
+
+Found by a `/skill-reviewer` pass. The correction is annotated inline in
+`recon-scout-rationale.md` rather than silently applied, so a reader can see what the number
+was and why it changed.
+
 ## v1.4.0 (2026-08-23)
 
 Adds one sub-label so a sweep can report that the fix already exists somewhere in the

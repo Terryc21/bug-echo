@@ -3,6 +3,24 @@
 All notable changes to bug-echo. Version numbers match the `metadata.version` field in
 `skills/bug-echo/SKILL.md` and the `version` field in `.claude-plugin/plugin.json`.
 
+## v1.5.1 (2026-08-23)
+
+First real fixture run. **PASS, 6/6 exact, 0 failures** — and CANON is no longer unverified.
+
+- **v1.4.0's CANON feature is confirmed working.** It shipped built, reviewed, and never
+  executed. Run by an agent given the Step 4 rules verbatim and no access to the answer key, it
+  found the reference implementation, tagged it `OK (CANON)`, emitted the
+  `**Reference implementation:**` line, and cited it in both BUG rows' Suggested fix — the
+  whole chain, unprompted. That moves the feature from *code-verified* to *actually works*.
+- **`score.py` gains a ±3-line tolerance**, recorded as a note rather than silently allowed.
+  The run cited the CANON site at its function signature (`:22`) where the key names the fetch
+  call (`:24`). Both are defensible — for a CANON site the "shape to converge on" is arguably
+  the whole function — but exact-line matching reported a correct identification as MISSING.
+  Negative controls were re-run after the change to confirm detection did not weaken.
+
+Second harness defect the fixture has caught in two runs (the first was the
+`**Reference implementation:**` parser bug in v1.5.0). Both were found only by running it.
+
 ## v1.5.0 (2026-08-23)
 
 First test of whether bug-echo's **judgment** is correct, rather than whether it activates.

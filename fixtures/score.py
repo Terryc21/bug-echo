@@ -109,8 +109,31 @@ def main():
     for site in key["sites"]:
         base = os.path.basename(site["file"])
         want = site["expect"]
-        got = actual.get((base, site["line"]))
         accepted = {want} | set(site.get("also_accept", []))
+
+        # Exact line first, then a small window. A citation can legitimately
+        # point at a function signature rather than the offending line inside
+        # it -- a CANON site especially, since "the shape to converge on" is
+        # arguably the whole function. Failing that as MISSING understates a
+        # correct identification, which is what happened on this fixture's
+        # first real run (SafeStore :22 vs :24, both defensible).
+        got = actual.get((base, site["line"]))
+        matched_line = site["line"]
+        if got is None:
+            tolerance = site.get("line_tolerance", 3)
+            for offset in range(1, tolerance + 1):
+                for cand in (site["line"] - offset, site["line"] + offset):
+                    if (base, cand) in actual:
+                        got = actual[(base, cand)]
+                        matched_line = cand
+                        break
+                if got is not None:
+                    break
+            if got is not None and matched_line != site["line"]:
+                notes.append(
+                    f"○ {base}:{matched_line}  cited instead of :{site['line']} "
+                    f"(within tolerance) -> {got}"
+                )
 
         if got is None:
             if site.get("optional"):

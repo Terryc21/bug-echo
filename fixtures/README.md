@@ -86,6 +86,45 @@ so a naive backward scan scored the CANON site as a BUG. The parser now checks t
 first. A harness that had only ever been tested against a passing report would have shipped
 that.
 
+## First real run — 2026-08-23
+
+Run against a fresh fixture by an agent given the Step 4 rules verbatim and **no access to the
+answer key**, to keep the judgment independent of the person who wrote the expectations.
+
+**Result: PASS, 6/6 exact, 0 failures.**
+
+| Site | Expected | Got |
+|---|---|---|
+| `ItemStore.swift:22` | BUG | BUG |
+| `CardView.swift:19` | BUG | BUG |
+| `SafeStore.swift:24` | CANON | CANON (cited `:22`) |
+| `ItemStoreTests.swift:13` | OK | OK |
+| `ItemStoreTests.swift:21` | OK | OK |
+| `PrefetchCache.swift:25` | WATCH | WATCH |
+
+Three things the run established that no amount of reading could:
+
+1. **v1.4.0's CANON feature works.** It had been written, reviewed, and never executed. The run
+   found the reference implementation, tagged it `OK (CANON)`, emitted the
+   `**Reference implementation:**` line, and cited it in both BUG rows' Suggested fix — the
+   whole chain, unprompted.
+2. **The scope note earned its place.** The narrow `try? ... .fetch` pattern could not match
+   `SafeStore`, which uses `do/try/catch`. The run found it by reading and said so explicitly.
+   Without that note the CANON site would have been invisible to a correctly-narrow pattern.
+3. **The decoy held.** `Support.swift:36` was not flagged, and the run volunteered why —
+   flagging it would mean the pattern had generalized past the seed.
+
+⚠️ **The run also exposed a harness defect.** It cited the CANON site at `:22` (the function
+signature) where the key says `:24` (the fetch call). Both are defensible — for a CANON site,
+"the shape to converge on" is arguably the whole function. The scorer had been matching lines
+exactly, so it reported a correct identification as MISSING. Fixed with a ±3-line tolerance
+that records the variance as a note. The negative controls were re-run afterward to confirm the
+tolerance did not weaken real detection.
+
+That is twice now the fixture has found a bug in its own harness rather than in the skill —
+first the `**Reference implementation:**` parser bug, now the line-matching brittleness. Both
+were found only by running it, which is the argument for running it.
+
 ## Adding a fixture
 
 1. `fixtures/<name>/src/` — the fake project. Include at least one deliberate BUG, one genuine

@@ -4,7 +4,7 @@ description: 'After fixing a bug, find and rate other instances of the same patt
 license: Apache-2.0
 allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Agent]
 metadata:
-  version: 1.4.1
+  version: 1.4.2
   author: Terry Nyberg, Coffee & Code LLC
   tier: execution
   category: debugging
@@ -314,6 +314,7 @@ For each match, regardless of how it was found:
    - **WATCH:** matches the anti-pattern but is contextually near-threshold or already has an architectural defense in place (e.g., the match sits inside a `@ViewBuilder` split that scoped a known crash, but if more conditions are added the scope could cross back into BUG territory). WATCH findings get a row in the Issue Rating Table with urgency typically ⚪ LOW or 🟢 MEDIUM and a documentation-only suggested fix (e.g., add a comment warning future maintainers about the threshold). Use WATCH when the code is correct today but the path to incorrect is short and foreseeable; use REVIEW when you can't tell.
    - **OK:** correct usage, no action needed (e.g., `as!` after a validated `is` check; strong `self` capture in a SwiftUI struct view).
      - **OK (CANON):** correct *and* it is the shape the BUG findings in this same sweep should be made to look like — the codebase already solved this problem here. Tag it `OK (CANON)` and record its `file:line`. This is a sub-label of OK, not a fifth classification: it changes nothing about the verdict, only what the report can cite. It applies when the pattern is fixed in some copies and not others, which happens whenever a past fix landed on one site and missed its siblings.
+       A worked example — a real run where two correct siblings existed and five copies had drifted — is in [examples/canon-reference-implementation.md](examples/canon-reference-implementation.md).
        🛑 **Most sweeps have no CANON site, and that is the normal result.** A young repo, a first sweep against a uniformly-broken pattern, or a genuinely novel bug will have no correct instance to point at. Tag CANON only when an OK site is unmistakably the same shape solving the same problem — never to satisfy this rule. Inventing a reference is worse than having none, because every BUG row would then be told to converge on something that isn't actually the answer. When there is no CANON site, everything below is a no-op and the report is exactly what it was before this label existed.
    - **REVIEW:** context unclear, requires human judgment.
 

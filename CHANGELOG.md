@@ -3,6 +3,32 @@
 All notable changes to bug-echo. Version numbers match the `metadata.version` field in
 `skills/bug-echo/SKILL.md` and the `version` field in `.claude-plugin/plugin.json`.
 
+## v1.4.2 (2026-08-23)
+
+Documentation and eval coverage for v1.4.0's CANON feature, which shipped with neither.
+
+- **New example: `examples/canon-reference-implementation.md`.** A real run (Stuffolio,
+  2026-08-23) where two correct siblings existed and five copies had drifted. Shows the
+  `OK (CANON)` classification, the `**Reference implementation:**` line, and a BUG finding
+  whose Suggested fix cites the reference instead of inventing one. Includes the
+  no-CANON-site case, since that is the normal outcome.
+- **Four eval cases added** (20 → 24). Three cover trigger phrases that were declared in the
+  `description` string but never tested — `run bug-echo`, `find other instances`,
+  `after-fix scan`. All five declared triggers are now covered verbatim. The fourth is a
+  CANON-shaped invocation.
+- **`trigger-eval-clean.json` is now generated, not hand-maintained.** Both files carried the
+  same 20 cases by hand with nothing detecting divergence. New `evals/README.md` documents the
+  one-line regeneration command and states plainly what the evals do NOT test — classification,
+  CANON selection, bucket choice, report shape, or any scale-gated behavior.
+
+The provenance note in the new example is worth keeping: the
+`2026-05-03-bug-echo-deep-viewbuilder-crash.md` report was already writing CANON findings in
+prose ("the canonical fix in this codebase. Any future fix should reference that pattern
+explicitly") months before the feature existed. v1.4.0 ratified practice rather than inventing
+a capability.
+
+Found by the same `/skill-reviewer` pass as v1.4.1 (findings #2, #5, #6).
+
 ## v1.4.1 (2026-08-23)
 
 Corrects a factual error in the Step 2.5 evidence. No behavior change.

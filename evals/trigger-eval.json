@@ -98,5 +98,25 @@
     "query": "delete the old CloudKitLegacyImporter.swift file, we fixed the duplicate-syncID bug and it's dead code now",
     "should_trigger": false,
     "note": "NEAR-MISS: mentions a fixed bug AND a code sweep intent, but the ask is deletion. Strong negative — has more surface overlap than any other."
+  },
+  {
+    "query": "run bug-echo",
+    "should_trigger": true,
+    "note": "Listed trigger phrase, bare, named directly. Was untested before v1.4.1 despite being the first trigger in the description string."
+  },
+  {
+    "query": "find other instances",
+    "should_trigger": true,
+    "note": "Listed trigger phrase, bare. The vaguest of the five — included specifically to confirm the description keys on it, since it carries no bug/fix vocabulary at all."
+  },
+  {
+    "query": "after-fix scan",
+    "should_trigger": true,
+    "note": "Listed trigger phrase, bare. Was untested before v1.4.1; completes coverage of all five phrases in the description string."
+  },
+  {
+    "query": "i fixed the success-toast bug in applyReceiptResult so it only fires when a field actually changed. two other files already do it the right way — find the ones that don't and point them at the correct version",
+    "should_trigger": true,
+    "note": "v1.4.0 CANON case: user states a fix AND that correct siblings already exist. Should fire in inferred mode and produce an OK (CANON) classification, not just BUG/OK. Tests that 'point them at the correct version' phrasing doesn't push it toward a refactor skill."
   }
 ]

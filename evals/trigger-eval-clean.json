@@ -78,5 +78,21 @@
   {
     "query": "delete the old CloudKitLegacyImporter.swift file, we fixed the duplicate-syncID bug and it's dead code now",
     "should_trigger": false
+  },
+  {
+    "query": "run bug-echo",
+    "should_trigger": true
+  },
+  {
+    "query": "find other instances",
+    "should_trigger": true
+  },
+  {
+    "query": "after-fix scan",
+    "should_trigger": true
+  },
+  {
+    "query": "i fixed the success-toast bug in applyReceiptResult so it only fires when a field actually changed. two other files already do it the right way \u2014 find the ones that don't and point them at the correct version",
+    "should_trigger": true
   }
 ]

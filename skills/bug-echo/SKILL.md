@@ -4,7 +4,7 @@ description: 'After fixing a bug, find and rate other instances of the same patt
 license: Apache-2.0
 allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Agent]
 metadata:
-  version: 1.3.4
+  version: 1.4.0
   author: Terry Nyberg, Coffee & Code LLC
   tier: execution
   category: debugging
@@ -279,6 +279,7 @@ Each sub-agent returns a structured list — one object per match, no prose wrap
   "line": 142,                              // 1-indexed line of the match
   "snippet": "…5-10 lines around the match…",
   "classification": "BUG",                  // one of BUG | WATCH | OK | REVIEW
+  "canon": false,                           // OK only: true if this site is the reference implementation (Step 4)
   "rationale": "one sentence: why this classification"
 }
 ```
@@ -290,7 +291,8 @@ A sub-agent that finds nothing in its batch returns an empty list, not a message
 1. **Concatenate** every sub-agent's list into one candidate set.
 2. **Deduplicate on the `(file, line)` key.** Overlapping globs or a pattern that spans a batch boundary can make two sub-agents report the same site. Keep one entry per `(file, line)`. If the two entries agree on classification, collapse silently. If they **disagree** on classification for the same `(file, line)`, do not pick arbitrarily — this is a consistency failure; handle it in step 3.
 3. **Spot-check for divergent classifications of near-identical shapes.** Beyond exact `(file, line)` collisions, scan the merged set for structurally near-identical sites (same syntactic shape, same surrounding context) that received *different* classifications across batches. For each such divergence, the main agent re-reads both sites (Read tool, 20-line window per Step 4.1) and issues the authoritative classification itself, overriding the sub-agent verdicts. Record in the report header how many divergences were reconciled (e.g., `Cross-batch reconciliations: 2`), so a reader knows the merge was checked, not assumed.
-4. **Carry the reconciled set into Step 4** as if it had come from a direct scan. Step 4's per-match work (the 20-line read, the intentional-usage check) still applies to any match the main agent did not already re-read during reconciliation; matches re-read in step 3 above are already classified and need not be re-read again.
+4. **Propagate any `canon: true` site across the whole merged set.** A sub-agent sees only its own batch, so the batch holding the reference implementation is usually not the batch holding the BUG findings that should cite it. After dedup, collect every `canon: true` entry and make it available to all BUG findings, whichever batch reported them. Without this the citation required by Step 4 silently doesn't happen on exactly the large sweeps where re-derivation is most costly.
+5. **Carry the reconciled set into Step 4** as if it had come from a direct scan. Step 4's per-match work (the 20-line read, the intentional-usage check) still applies to any match the main agent did not already re-read during reconciliation; matches re-read in step 3 above are already classified and need not be re-read again.
 
 ### Failure handling
 
@@ -311,9 +313,13 @@ For each match, regardless of how it was found:
    - **BUG:** matches the anti-pattern, correctness issue confirmed in this context.
    - **WATCH:** matches the anti-pattern but is contextually near-threshold or already has an architectural defense in place (e.g., the match sits inside a `@ViewBuilder` split that scoped a known crash, but if more conditions are added the scope could cross back into BUG territory). WATCH findings get a row in the Issue Rating Table with urgency typically ⚪ LOW or 🟢 MEDIUM and a documentation-only suggested fix (e.g., add a comment warning future maintainers about the threshold). Use WATCH when the code is correct today but the path to incorrect is short and foreseeable; use REVIEW when you can't tell.
    - **OK:** correct usage, no action needed (e.g., `as!` after a validated `is` check; strong `self` capture in a SwiftUI struct view).
+     - **OK (CANON):** correct *and* it is the shape the BUG findings in this same sweep should be made to look like — the codebase already solved this problem here. Tag it `OK (CANON)` and record its `file:line`. This is a sub-label of OK, not a fifth classification: it changes nothing about the verdict, only what the report can cite. It applies when the pattern is fixed in some copies and not others, which happens whenever a past fix landed on one site and missed its siblings.
+       🛑 **Most sweeps have no CANON site, and that is the normal result.** A young repo, a first sweep against a uniformly-broken pattern, or a genuinely novel bug will have no correct instance to point at. Tag CANON only when an OK site is unmistakably the same shape solving the same problem — never to satisfy this rule. Inventing a reference is worse than having none, because every BUG row would then be told to converge on something that isn't actually the answer. When there is no CANON site, everything below is a no-op and the report is exactly what it was before this label existed.
    - **REVIEW:** context unclear, requires human judgment.
 
 Classify each match individually. Do not batch-judge a directory or file.
+
+**If — and only if — a CANON site was found, every BUG row's `Suggested fix` cites it** (`file:line`) instead of describing a fix from scratch. A finding whose remedy already exists in-repo is propagation, not design: rate it `verified` rather than `probable`, and rate Risk-of-Fixing and Fix Effort against copying the reference, not against inventing one. Omitting the citation when one exists is how a codebase ends up with several drifted copies of something a sibling already got right. When no CANON site was found, write the suggested fix normally — this adds no step.
 
 ---
 
@@ -347,6 +353,8 @@ Render in conversation, not to a file. Single Issue Rating Table with one row pe
 
 **Recon classifications:** [N] BUG, [N] OK (cite line numbers if relevant), [N] REVIEW.
 ```
+
+🛑 **A CANON site is the one OK finding inline mode never omits.** The "skip the OK section" rule above exists to suppress noise, but a reference implementation is the opposite of noise — it is the answer to every BUG row in the table. Render it as a `**Reference implementation:** path/file.swift:[line]` line beneath the table whenever one was found.
 
 After rendering, proceed to Step 6 (follow-up).
 
@@ -402,7 +410,13 @@ For each BUG finding:
 [code snippet, 5-10 lines around the match]
 
 **Why this is a bug:** [1-2 sentences]
-**Suggested fix:** [1-2 sentences]
+**Suggested fix:** [1-2 sentences. If a CANON site exists, cite it — "mirror `path/File.swift:311`" — rather than describing a fix from scratch.]
+```
+
+If the sweep produced any `OK (CANON)` sites, name them once directly beneath the BUG table so the reader sees the reference before the individual findings:
+
+```
+**Reference implementation:** `path/to/File.swift:311` — this codebase already solves this pattern here. The findings below should converge on it rather than each inventing a fix.
 ```
 
 ## WATCH Findings (near-threshold, defensive only)

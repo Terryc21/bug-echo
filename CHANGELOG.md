@@ -3,6 +3,41 @@
 All notable changes to bug-echo. Version numbers match the `metadata.version` field in
 `skills/bug-echo/SKILL.md` and the `version` field in `.claude-plugin/plugin.json`.
 
+## v1.4.0 (2026-08-23)
+
+Adds one sub-label so a sweep can report that the fix already exists somewhere in the
+codebase. Behavior change, hence the minor bump — v1.3.4 was documentation-only.
+
+- **`OK (CANON)` sub-label in Step 4.** An OK site can now be marked as the *reference
+  implementation*: correct, and the shape the BUG findings in the same sweep should
+  converge on. It is a sub-label of OK, not a fifth classification — the verdict taxonomy
+  the sub-agent contract depends on (`BUG | WATCH | OK | REVIEW`) is unchanged, as is the
+  dedup/reconciliation logic.
+- **BUG rows cite the reference when one exists.** `Suggested fix` points at `file:line`
+  rather than describing a fix from scratch, and the finding rates as propagation rather
+  than design (`verified` confidence; Risk-of-Fixing and Fix Effort measured against
+  copying the reference).
+- **`canon` flag added to the sub-agent return contract, plus a merge step that propagates
+  it.** A sub-agent sees only its own batch, so the batch holding the reference is usually
+  not the batch holding the findings that should cite it. Without the propagation step the
+  citation would silently fail on exactly the >500-file sweeps where re-deriving a solution
+  costs the most.
+- **Inline mode never omits a CANON site**, despite its general "skip the OK section" rule —
+  a reference implementation is the answer to every row in the table, not noise.
+
+🛑 **Most sweeps will have no CANON site, and the skill says so explicitly.** A young repo, a
+first sweep against a uniformly-broken pattern, or a novel bug has no correct instance to
+point at; in that case every addition above is a no-op and the report is byte-identical to
+what v1.3.4 produced. The rule warns against inventing a reference to satisfy it, since
+pointing findings at a wrong "answer" is worse than having none.
+
+**Origin:** a Stuffolio sweep found five near-duplicate functions reporting success after
+conditional writes that could collectively write nothing — while two siblings in the same
+codebase already implemented the correct counting fix, one of them carrying a comment
+describing that exact defect. The sweep classified both correct sites as bare `OK`, so the
+most useful fact it produced — *the answer is already here* — was discarded before the
+report was written.
+
 ## v1.3.4 (2026-08-06)
 
 Documentation-only pass. No behavior change — every step, threshold, and output format is

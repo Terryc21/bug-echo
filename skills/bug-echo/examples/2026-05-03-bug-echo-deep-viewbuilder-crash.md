@@ -1,5 +1,13 @@
 # bug-echo Report: Deep @ViewBuilder type-tree crash (SubstGenericParametersFromMetadata)
 
+> [!IMPORTANT]
+> **Written against v1.2.0. Report shape and step numbers current as of that release.**
+> Later releases changed things this report predates — Step 2.5 gained two sub-steps in
+> v1.3.0 (already-swept exclusion, high-count tighten offer), and v1.4.0 added the
+> `OK (CANON)` classification. The classification rules and rating columns shown here are
+> unchanged. See [CHANGELOG.md](../../../CHANGELOG.md) for what moved; the step numbers cited
+> below (Step 2.5, Step 4) still resolve.
+
 > [!NOTE]
 > This example demonstrates the **v1.2.0 full report** output shape and shows the post-fix-sweep workflow: a fix had already shipped a month earlier (collapsibleSectionsStack, commits f01a2b82 + fbefd970), so the ledger row was retroactively closed via radar-suite verification, then bug-echo was run to find unfired echoes of the same pattern elsewhere in the codebase.
 >

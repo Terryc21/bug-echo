@@ -32,20 +32,20 @@ If some words here are new, this is the whole vocabulary in one place:
 - **Skill / plugin.** A skill is a set of instructions Claude Code knows how to follow. Once installed, you type `/bug-echo` and Claude does the work. You don't memorize anything.
 - **A "fix" / a "diff."** When you change code, the before-and-after difference is called a *diff*. bug-echo reads your most recent diff to learn what the bug was.
 - **Sibling bug.** Another spot in your project with the same underlying buggy pattern as the one you just fixed.
-- **BUG / OK / REVIEW.** How bug-echo labels each spot it finds: a real problem, a false alarm, or "not sure, you decide."
+- **BUG / WATCH / OK / REVIEW.** How bug-echo labels each spot it finds: a real problem, one that's safe today but a short step from breaking, a false alarm, or "not sure, you decide."
 
 That's enough to use it. The rest of the README goes deeper for people who want the mechanics.
 
 ## TL;DR
 
-- **What:** A Claude Code skill you run right after fixing a bug. It learns the buggy pattern from your fix and searches the rest of your project for that same pattern elsewhere. Each hit is labeled BUG / OK / REVIEW with an exact file and line number.
+- **What:** A Claude Code skill you run right after fixing a bug. It learns the buggy pattern from your fix and searches the rest of your project for that same pattern elsewhere. Each hit is labeled BUG / WATCH / OK / REVIEW with an exact file and line number.
 - **Why it works:** The pattern it searches for is one that just proved itself real in your code. That beats checking against a pre-written list, because the pattern was chosen by an actual bug, not by someone guessing in advance.
 - **Install:** Two `/plugin` commands in Claude Code. Then `/bug-echo` works in any project.
 - **Try it:** After your next bug fix, run `/bug-echo`. It takes about 2 minutes on a typical codebase.
 - **Example output:** [a real sibling-bug scan on Stuffolio](skills/bug-echo/examples/2026-05-03-bug-echo-deep-viewbuilder-crash.md). Also: [describe-mode example on TypeScript (synthesized)](skills/bug-echo/examples/describe-mode-await-in-forEach.md), and [a run where the fix already existed in the codebase](skills/bug-echo/examples/canon-reference-implementation.md) (v1.4.0 CANON).
 - **See it work:** [a real run that caught a 2-week-old sibling bug in 2 minutes](#a-worked-example).
-- **Maturity:** v1.4.2, used through real App Store submission cycles. Works in any language for building the search pattern, with a few Apple-specific niceties currently Swift-only.
-- **Recent releases:** v1.4.2 added a worked example and eval coverage for the CANON feature, which v1.4.0 shipped without either. v1.4.1 corrected a factual error in the Step 2.5 evidence table (one run recorded 0 confirmed bugs when its own report says 1); the 39% headline is unchanged, two sub-percentages moved. v1.4.0 lets a sweep report that the fix already exists elsewhere in the codebase — when a correct sibling is found, findings cite it instead of each inventing a fix (no-op on repos where no such sibling exists, which is most). v1.3.4 trimmed the skill file to execution-only content (no behavior change). v1.3.0 brought large-codebase hardening. On a big project swept across several sessions, bug-echo now skips sites it already fixed in a prior run (checked against git history, then re-verified against live source so a reintroduced bug is still caught), and offers to tighten an over-broad pattern before classifying hundreds of matches. Both are threshold-gated, so small projects run exactly as before. Earlier, [the v1.2.0 recon scout](skills/bug-echo/examples/recon-scout-rationale.md) added report-shaping that cuts about 39% of runs to a one-line note or short inline table instead of a full report file.
+- **Maturity:** v1.4.3, used through real App Store submission cycles. Works in any language for building the search pattern, with a few Apple-specific niceties currently Swift-only.
+- **Recent releases:** v1.4.3 was an examples-hygiene pass — every example now states which release it was written against, and the README's own vocabulary line had been omitting WATCH. v1.4.2 added a worked example and eval coverage for the CANON feature, which v1.4.0 shipped without either. v1.4.1 corrected a factual error in the Step 2.5 evidence table (one run recorded 0 confirmed bugs when its own report says 1); the 39% headline is unchanged, two sub-percentages moved. v1.4.0 lets a sweep report that the fix already exists elsewhere in the codebase — when a correct sibling is found, findings cite it instead of each inventing a fix (no-op on repos where no such sibling exists, which is most). v1.3.4 trimmed the skill file to execution-only content (no behavior change). v1.3.0 brought large-codebase hardening. On a big project swept across several sessions, bug-echo now skips sites it already fixed in a prior run (checked against git history, then re-verified against live source so a reintroduced bug is still caught), and offers to tighten an over-broad pattern before classifying hundreds of matches. Both are threshold-gated, so small projects run exactly as before. Earlier, [the v1.2.0 recon scout](skills/bug-echo/examples/recon-scout-rationale.md) added report-shaping that cuts about 39% of runs to a one-line note or short inline table instead of a full report file.
 
 ## bug-echo vs. a linter (they work together)
 
@@ -295,7 +295,7 @@ A real chain example: an iPhone-only crash deferred for a month was marked Fixed
 
 ## Status
 
-Current version: 1.4.2. Built primarily for Swift/SwiftUI. The pattern construction is language-agnostic; the platform-conditional handling is currently Swift-specific.
+Current version: 1.4.3. Built primarily for Swift/SwiftUI. The pattern construction is language-agnostic; the platform-conditional handling is currently Swift-specific.
 
 Release history is in [CHANGELOG.md](CHANGELOG.md).
 

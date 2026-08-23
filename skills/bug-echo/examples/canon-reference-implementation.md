@@ -1,5 +1,8 @@
 # bug-echo Report: success reported without checking whether anything happened (CANON example)
 
+> [!IMPORTANT]
+> **Written against v1.4.2. Report shape and step numbers current as of that release.**
+
 > [!NOTE]
 > This is a **real run** (Stuffolio, 2026-08-23, inferred-from-diff mode) trimmed to
 > illustrate one v1.4.0 feature: `OK (CANON)`. The full sweep produced eight findings across

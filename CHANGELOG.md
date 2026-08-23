@@ -3,6 +3,32 @@
 All notable changes to bug-echo. Version numbers match the `metadata.version` field in
 `skills/bug-echo/SKILL.md` and the `version` field in `.claude-plugin/plugin.json`.
 
+## v1.4.3 (2026-08-23)
+
+Examples-hygiene pass. No behavior change.
+
+- **Every example now states which release it was written against**, in an `[!IMPORTANT]`
+  header naming what changed since and what still holds. The two reports are v1.2.0-era; the
+  hardening rationale is v1.3.x. Silent staleness becomes visible staleness — a reader can
+  tell at a glance whether a step number or report shape predates their installed version.
+- **`recon-scout-rationale.md` gets the strongest note**: it is not merely dated, it is an
+  actively *incomplete* description of Step 2.5, which gained two sub-steps in v1.3.0 that the
+  doc never mentions. Its header now points at the hardening doc and `SKILL.md`.
+- **`describe-mode-await-in-forEach.md`:** added the missing `WATCH findings: 0` line so both
+  examples show the same four-bucket vocabulary; marked the two invented incident claims as
+  illustrative (the file is flagged synthetic at the top, but those read as fact mid-document);
+  corrected `ast-grep --help scan` → `ast-grep scan --help`, replaced the `--pattern` form with
+  `ast-grep run`, and removed a `| xargs grep -l` pipeline that could not work as written
+  (`ast-grep` prints match output, not a file list).
+- **`large-codebase-hardening-rationale.md`:** "four changes" → "five", in both the prose and
+  the section heading. The table always had five rows.
+- **README:** the vocabulary section and TL;DR both said `BUG / OK / REVIEW`, omitting WATCH —
+  the same defect as the describe-mode example, in the more-read file. Found by auditing the
+  README rather than assuming it was current.
+
+Closes findings #3, #4, #7, #8 from the `/skill-reviewer` pass, plus the README instance
+that pass did not cover.
+
 ## v1.4.2 (2026-08-23)
 
 Documentation and eval coverage for v1.4.0's CANON feature, which shipped with neither.

@@ -1,6 +1,13 @@
 # Large-codebase hardening rationale (v1.3.x)
 
-The v1.3.0–1.3.2 releases added four changes aimed at one problem: bug-echo runs on codebases far larger than the one it was first tuned against, and a few of its steps behaved badly at that scale. This doc records why each change exists and — just as important — what constrains it, so future contributors extend the large-codebase path without taxing the small one.
+> [!IMPORTANT]
+> **Written against v1.3.0–1.3.2 and current for that arc.** The five thresholds below (≥6,
+> ≥25, >500 files, 50-commit cap) are unchanged as of v1.4.x. v1.4.0 added one thing this doc
+> predates: the `OK (CANON)` classification, which extends the Step 3.5 sub-agent contract
+> with a `canon` field and a cross-batch propagation step. See
+> [CHANGELOG.md](../../../CHANGELOG.md) and `SKILL.md` § Step 3.5.
+
+The v1.3.0–1.3.2 releases added five changes aimed at one problem: bug-echo runs on codebases far larger than the one it was first tuned against, and a few of its steps behaved badly at that scale. This doc records why each change exists and — just as important — what constrains it, so future contributors extend the large-codebase path without taxing the small one.
 
 Companion doc: [recon-scout-rationale.md](recon-scout-rationale.md) covers the v1.2.0 Step 2.5 recon scout, which this arc builds on.
 
@@ -10,7 +17,7 @@ bug-echo was tuned against a ~600-file Swift codebase. On a 500K+ LOC project (5
 
 The answer had to satisfy one hard constraint: **the common path must not get slower or more talkative.** Most codebases are small. A change that helps a 5,000-file repo but adds a prompt or a git call to a 20-file repo is a net loss. That constraint produced the § Scale invariants section in SKILL.md and shaped every feature below.
 
-## The four changes
+## The five changes
 
 | Change | Version | Problem it solves | How it's bounded |
 |---|---|---|---|

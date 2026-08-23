@@ -1,5 +1,11 @@
 # bug-echo Report: `await` inside `Array.forEach` (describe mode)
 
+> [!IMPORTANT]
+> **Written against v1.2.0. Report shape and step numbers current as of that release.**
+> Later releases added things this report predates — two Step 2.5 sub-steps in v1.3.0 and the
+> `OK (CANON)` classification in v1.4.0. The described-mode flow itself is unchanged. See
+> [CHANGELOG.md](../../../CHANGELOG.md) for what moved.
+
 > [!NOTE]
 > This is a **synthesized example** of bug-echo's describe-mode workflow on a TypeScript codebase under v1.2.0. The skill's other example file in this directory shows inferred-from-diff mode against a real Stuffolio Swift codebase; this one shows describe mode (the user types out the pattern instead of pointing at a recent fix) on a non-Swift project. File paths and report shape are illustrative.
 
@@ -49,13 +55,18 @@ rule:
 
 Run with: `ast-grep scan --rule await-in-foreach.yml src/`.
 
-For a quick exploration without a YAML rule file, the two-stage approximation `ast-grep --pattern '$ARR.forEach(async ($$$) => { $$$ })' --lang ts | xargs grep -l 'await'` is less precise but works inline. The exact ast-grep syntax depends on the ast-grep version on your PATH; if your version rejects the YAML, run `ast-grep --help scan` and adjust the `has` block accordingly.
+For a quick exploration without a YAML rule file, `ast-grep run --pattern '$ARR.forEach(async ($$$) => { $$$ })' --lang ts src/` is less precise but works inline — it matches every async `forEach` callback, including the ones that contain no `await` and are therefore harmless, so expect to discard some hits by eye.
+
+⚠️ An earlier revision of this file piped that command into `xargs grep -l 'await'` to narrow it. That does not work: `ast-grep` prints match output, not a bare file list, so `xargs` receives code rather than paths. Use `--json` and extract the file field if you want to chain it, or just read the matches.
+
+The exact ast-grep syntax depends on the version on your PATH; if yours rejects the YAML, run `ast-grep scan --help` and adjust the `has` block accordingly.
 
 ---
 
 ## Summary
 
 - BUG findings: 3
+- WATCH findings: 0
 - OK findings: 2
 - REVIEW findings: 1
 
@@ -66,7 +77,7 @@ For a quick exploration without a YAML rule file, the two-stage approximation `a
 | # | Finding | Urgency | Risk: Fix | Risk: No Fix | ROI | Blast Radius | Fix Effort | Status |
 |---|---|---|---|---|---|---|---|---|
 | 1 | `src/jobs/email-batch.ts:42` — `recipients.forEach(async (r) => { await sendEmail(r); })` inside `processBatch()`. The function returns `Promise.resolve()` immediately while emails fire in parallel. The downstream code that logs "batch complete" runs before any email is actually sent. | 🔴 CRITICAL | ⚪ Low | 🔴 Critical | 🟠 Excellent | ⚪ 1 file | Trivial | Open |
-| 2 | `src/migrations/run-pending.ts:18` — migrations are awaited inside `pending.forEach(async ...)`. Two migrations targeting the same table can run concurrently and the second overwrites the first's changes. Has produced silent schema drift in staging twice in the last quarter. | 🔴 CRITICAL | ⚪ Low | 🔴 Critical | 🟠 Excellent | ⚪ 1 file | Trivial | Open |
+| 2 | `src/migrations/run-pending.ts:18` — migrations are awaited inside `pending.forEach(async ...)`. Two migrations targeting the same table can run concurrently and the second overwrites the first's changes. *(Illustrative for this synthesized example: assume it has produced silent schema drift in staging twice in the last quarter — the kind of history that would drive the CRITICAL rating.)* | 🔴 CRITICAL | ⚪ Low | 🔴 Critical | 🟠 Excellent | ⚪ 1 file | Trivial | Open |
 | 3 | `src/api/audit-log.ts:97` — `events.forEach(async (e) => { await persistEvent(e); })`. Events are written to the audit log in parallel, so the audit log's chronological order does not match the order events arrived. Any tool downstream that reads the log assuming sequential ordering is wrong. | 🟡 HIGH | ⚪ Low | 🟡 High | 🟠 Excellent | ⚪ 1 file | Trivial | Open |
 
 ---
@@ -134,7 +145,7 @@ async function runPendingMigrations() {
 }
 ```
 
-**Why this is a bug:** Migrations *must* run sequentially. Two migrations that both add columns to the `users` table can race each other and one's commit will conflict with the other. The codebase already had this incident twice — a migration appeared to apply but a column was missing because a later concurrent migration's transaction overwrote the table state. The bug pattern is the same shape as #1.
+**Why this is a bug:** Migrations *must* run sequentially. Two migrations that both add columns to the `users` table can race each other and one's commit will conflict with the other. In this synthesized scenario the codebase has already had this incident twice — a migration appeared to apply but a column was missing because a later concurrent migration's transaction overwrote the table state. (Invented history, included because prior incidents are exactly what pushes a finding from HIGH to CRITICAL; a real run would cite the actual postmortem here.) The bug pattern is the same shape as #1.
 
 **Suggested fix:**
 ```typescript

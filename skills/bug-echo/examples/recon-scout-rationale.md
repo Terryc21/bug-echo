@@ -1,5 +1,14 @@
 # Recon scout rationale (Step 2.5)
 
+> [!IMPORTANT]
+> **Written against v1.2.0, and Step 2.5 has grown since.** This doc describes the recon
+> scout as it shipped: count candidates, bucket into 0 / 1-5 / 6+. v1.3.0 added two sub-steps
+> to the same step that are NOT described here — the already-swept exclusion (≥6 candidates
+> plus prior `bug-echo:` commits) and the high-count tighten offer (≥25 candidates). Read
+> [large-codebase-hardening-rationale.md](large-codebase-hardening-rationale.md) alongside
+> this one for the current shape of Step 2.5, and `SKILL.md` for the authoritative version.
+> The evidence and bucket boundaries below are still current.
+
 The v1.2.0 release added a `Step 2.5: Recon scout` between pattern validation and the full scan. This doc records the evidence that motivated it, so future contributors can decide whether to extend, narrow, or remove the step based on real-run data rather than speculation.
 
 ## The question

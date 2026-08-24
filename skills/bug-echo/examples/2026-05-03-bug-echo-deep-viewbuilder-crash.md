@@ -1,5 +1,21 @@
 # bug-echo Report: Deep @ViewBuilder type-tree crash (SubstGenericParametersFromMetadata)
 
+## BUG Findings — Issue Rating Table
+
+| # | Finding | Urgency | Risk: Fix | Risk: No Fix | ROI | Blast Radius | Fix Effort | Status |
+|---|---|---|---|---|---|---|---|---|
+| 1 | RMARow.body has ~16 lexical children in body's type tree (outer VStack with HStack + HStack + Text + inner VStack containing 12 if-conditionals). RMARow is a list-row instantiated per record. At list-render time the type tree is fully resolved per cell. This is the only finding that approaches the documented 16+ crash density. | 🟡 HIGH | ⚪ Low | 🟡 High | 🟠 Excellent | ⚪ 1 file | Small | Fixed |
+
+**BUG #1 closure (2026-05-03):** Split RMARow's details VStack into `coreDetailsBlock` (4 children: calendar + 3 logistics if-lets) and `extendedDetailsBlock` (9 if-let detail lines), both `@ViewBuilder` private computed properties. The body's outer VStack now has 5 sibling top-level children, none of which contain more than 4 conditionals. Post-fix scope analyzer confirms zero scopes with ≥5 conditional children remaining in the file. iOS Simulator + macOS builds both succeed. Diagnostic comment added at the call site referencing commits f01a2b82 + fbefd970 and warning against re-flattening.
+
+## WATCH Findings — Issue Rating Table
+
+| # | Finding | Urgency | Risk: Fix | Risk: No Fix | ROI | Blast Radius | Fix Effort | Status |
+|---|---|---|---|---|---|---|---|---|
+| 2 | OCRResultSheet.extractedFieldsSection holds 12 if-let conditionals in a single VStack. The function is a `@ViewBuilder`-style computed `some View` that's called from a parent body with surrounding chrome. Total per-call resolution depth is ~14-15. Below the 16 documented break, but if more OCR fields are added it crosses the line. | 🟢 MED | ⚪ Low | 🟢 Med | 🟢 Good | ⚪ 1 file | Trivial | Open |
+| 3 | EnhancedItemDetailView+Sections.atAGlanceSection holds 11 conditionals in one VStack. Already inside the split-group architecture (called from coreSectionsGroup, which is one of the 3 ViewBuilder groups). Sibling sections in coreSectionsGroup are productInfoSection and warrantySection, also dense. Compounded across all three: depth approaches the original crash line if any one of them grows. | 🟢 MED | ⚪ Low | 🟢 Med | 🟢 Good | ⚪ 1 file | Trivial | Open |
+| 4 | EnhancedItemDetailView+Sections.productInfoSection holds 10 conditionals in one VStack. Same context as #3 — already inside the split-group architecture, but the per-section density is high enough that adding 2-3 fields takes it into the BUG zone. | 🟢 MED | ⚪ Low | 🟢 Med | 🟢 Good | ⚪ 1 file | Trivial | Open |
+
 > [!IMPORTANT]
 > **Written against v1.2.0. Report shape and step numbers current as of that release.**
 > Later releases changed things this report predates — Step 2.5 gained two sub-steps in
@@ -43,22 +59,6 @@
 - REVIEW findings: 0
 
 Three of the four hits are classified WATCH (per Step 4 of the spec): they sit inside dedicated `@ViewBuilder` properties whose siblings are already small, so the architectural defense is in place, but they themselves carry density that would put them into the BUG zone if they were ever inlined. They warrant a comment to prevent regression but no code change today.
-
-## BUG Findings — Issue Rating Table
-
-| # | Finding | Urgency | Risk: Fix | Risk: No Fix | ROI | Blast Radius | Fix Effort | Status |
-|---|---|---|---|---|---|---|---|---|
-| 1 | RMARow.body has ~16 lexical children in body's type tree (outer VStack with HStack + HStack + Text + inner VStack containing 12 if-conditionals). RMARow is a list-row instantiated per record. At list-render time the type tree is fully resolved per cell. This is the only finding that approaches the documented 16+ crash density. | 🟡 HIGH | ⚪ Low | 🟡 High | 🟠 Excellent | ⚪ 1 file | Small | Fixed |
-
-**BUG #1 closure (2026-05-03):** Split RMARow's details VStack into `coreDetailsBlock` (4 children: calendar + 3 logistics if-lets) and `extendedDetailsBlock` (9 if-let detail lines), both `@ViewBuilder` private computed properties. The body's outer VStack now has 5 sibling top-level children, none of which contain more than 4 conditionals. Post-fix scope analyzer confirms zero scopes with ≥5 conditional children remaining in the file. iOS Simulator + macOS builds both succeed. Diagnostic comment added at the call site referencing commits f01a2b82 + fbefd970 and warning against re-flattening.
-
-## WATCH Findings — Issue Rating Table
-
-| # | Finding | Urgency | Risk: Fix | Risk: No Fix | ROI | Blast Radius | Fix Effort | Status |
-|---|---|---|---|---|---|---|---|---|
-| 2 | OCRResultSheet.extractedFieldsSection holds 12 if-let conditionals in a single VStack. The function is a `@ViewBuilder`-style computed `some View` that's called from a parent body with surrounding chrome. Total per-call resolution depth is ~14-15. Below the 16 documented break, but if more OCR fields are added it crosses the line. | 🟢 MED | ⚪ Low | 🟢 Med | 🟢 Good | ⚪ 1 file | Trivial | Open |
-| 3 | EnhancedItemDetailView+Sections.atAGlanceSection holds 11 conditionals in one VStack. Already inside the split-group architecture (called from coreSectionsGroup, which is one of the 3 ViewBuilder groups). Sibling sections in coreSectionsGroup are productInfoSection and warrantySection, also dense. Compounded across all three: depth approaches the original crash line if any one of them grows. | 🟢 MED | ⚪ Low | 🟢 Med | 🟢 Good | ⚪ 1 file | Trivial | Open |
-| 4 | EnhancedItemDetailView+Sections.productInfoSection holds 10 conditionals in one VStack. Same context as #3 — already inside the split-group architecture, but the per-section density is high enough that adding 2-3 fields takes it into the BUG zone. | 🟢 MED | ⚪ Low | 🟢 Med | 🟢 Good | ⚪ 1 file | Trivial | Open |
 
 ## Detailed findings
 

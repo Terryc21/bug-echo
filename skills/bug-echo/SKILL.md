@@ -136,6 +136,27 @@ This is bug-echo's distinctive mode. Execute these steps directly using Bash and
    - Lines starting with `+` (and not `+++`) are added lines (the correct pattern).
    - Strip leading whitespace differences when constructing the pattern.
 
+2.1 **Check whether the removed lines are self-sufficient.**
+
+   Before building a pattern, ask: *reading the removed lines alone, with no other context, can you tell this is a bug?*
+
+   - **Yes, self-sufficient.** `try? context.fetch(...)` swallowing an error is wrong on sight. Continue to step 3 unchanged. This is the common case.
+   - **No, the removed lines look ordinary.** The line reads as unremarkable code, and what made it a bug is somewhere else in the enclosing scope: a guard two lines up, a state the function sets before reaching it, a lock not held, an early return that should have fired. The bug is the *combination*, and the changed line is only half of it.
+
+   **If not self-sufficient**, read the enclosing scope from the pre-fix file (the function or method containing the change; use the whole type only if the function boundary is unclear) and identify the **precondition**: the thing that had to also be true for this line to be a bug.
+
+   Then build **two** patterns, not one:
+   - the **primary pattern**, from the removed lines, exactly as in step 3;
+   - a **precondition pattern**, from the enclosing scope, describing the state that makes the primary a bug.
+
+   Carry both forward. The recon scout (Step 2.5) and the scan (Step 3) use the primary pattern to find candidates; the precondition pattern is checked against each candidate's enclosing scope during Step 4 classification. A match with the primary but not the precondition is classified **OK**, with the reason naming the missing precondition.
+
+   🛑 **Do not fold the precondition into the primary pattern.** A conjoined regex only matches where both appear on the same line, which is exactly what the precondition case is not, and it would silently drop the siblings you are trying to find. Two patterns, applied at different stages.
+
+   ⚠️ **If you cannot name the precondition, say so and switch to Step 2A described mode.** Do not proceed with the primary pattern alone and report a clean run. A zero-match result from a pattern that was never able to express the bug is a false all-clear, and it is worse than admitting the inference failed. Tell the user plainly: "The fixed line looks ordinary on its own and I can't tell what made it a bug from the diff. Describe the pattern and I'll scan for it."
+
+   *Why this step exists: pattern inference reads the removed lines only. Context is used at classification (a 20-line window) but never at construction, so a precondition living outside the diff never reaches the search. The result is a confident zero-match run on a codebase that may hold many siblings. Raised 2026-08-25 by a user on r/claudeskills who reported better results feeding their own checker the enclosing function rather than just the changed lines.*
+
 3. **Construct a search pattern from the removed lines.**
    - Identify the smallest distinctive substring of the removed code that captures the anti-pattern. Avoid matching on comments, formatting, or unrelated changes.
    - If `which ast-grep` returns a path via Bash, prefer constructing an AST-grep pattern. Otherwise construct a regex compatible with the Grep tool.
@@ -156,7 +177,7 @@ This is bug-echo's distinctive mode. Execute these steps directly using Bash and
      - Abort with explanation.
    - **Do not scan with an unvalidated pattern.** Scanning with a bad pattern produces nonsense findings and erodes user trust.
 
-5. **Present the inferred pattern** using the Step 2A summary format and confirm with the user before scanning.
+5. **Present the inferred pattern** using the Step 2A summary format and confirm with the user before scanning. **If step 2.1 produced a precondition pattern, show both**, labelled, with one line on what the precondition means: the primary finds candidates, the precondition decides which of them are bugs. The user is the best check on whether the precondition you named is the real one.
 
 The validation step is non-negotiable. If you cannot construct a pattern that matches the pre-fix file, the inference has failed. Do not proceed with a guess.
 
@@ -305,6 +326,8 @@ If a sub-agent dispatch fails or returns malformed output (not the structured sh
 For each match, regardless of how it was found:
 
 1. **Read the file** at the match location (Read tool), at minimum 20 lines around the match. Multi-platform code may need a wider window to capture surrounding `#if` blocks.
+
+1.5. **Check the precondition pattern, if step 2.1 produced one.** When the inference ran with a precondition (removed lines were not self-sufficient), read the candidate's enclosing scope and test the precondition pattern against it. If the precondition is absent, classify **OK** and state which precondition was missing. Only candidates carrying BOTH the primary and the precondition remain eligible for BUG.
 
 2. **Check for known intentional usages.**
    - This is in-context judgment by Claude. Common intentional uses (e.g., `try?` in test code where failure is acceptable, force-unwrap of an IBOutlet) are classified as OK. There is no suppression file to consult — every run re-judges from the source, so a usage that was intentional last month still has to read as intentional today.

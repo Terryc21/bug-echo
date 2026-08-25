@@ -279,6 +279,52 @@ A clean bug-echo run means zero matches for the inferred pattern. It does not me
 
 **Where to look for the bugs bug-echo won't find:** pattern-based linters (SwiftLint, etc.) catch single-file style violations; [bug-prospector](https://github.com/Terryc21/bug-prospector) catches forward-looking behavioral assumptions; runtime profiling (Instruments, sanitizers) catches concurrency and memory issues; targeted unit tests catch business-logic correctness. bug-echo covers the sibling-bug-after-a-fix slot in that picture.
 
+### When the bug lives between two files, do this instead
+
+The first limit above is worth spelling out, because it comes up often and the fix is
+easy once you see it.
+
+Some bugs aren't in any one file. Every file is fine on its own, and the bug only shows
+up in how they fit together. A real one from my app: a view added a button to its
+toolbar, which was correct. Its parent view added the same button, also correct. Neither
+file was wrong. But the parent drew the child inside its own navigation stack, so the two
+toolbars merged and you saw the button twice.
+
+There is nothing to search for there. You can't grep for "a view that adds a toolbar
+button while its parent also adds one," because that isn't text, it's a relationship.
+
+**The trick is to stop searching for the bug and start searching for the setup.** The bug
+has no shape, but the ingredient does:
+
+1. Grep for one half of the pair. In my case, every view that puts that button in a
+   toolbar. That found 28 files.
+2. For each one, go look at who calls it, and how. Is it drawn inline inside the parent,
+   or shown as a sheet, or pushed as a new screen? You can't tell from the file itself.
+   You have to open the callers.
+3. Only some of those contexts cause the bug. Drawn inline under a parent that also owns
+   a toolbar is a bug. A sheet is fine, it gets its own toolbar. A pushed screen is fine.
+
+Step 2 is the part a tool can't do for you. Steps 1 and 3 are mechanical.
+
+Mine took about 20 minutes for 28 files and turned up nothing new. That's still a result
+worth having. "I checked and there aren't any more" beats "I wonder if there are more"
+when you're about to ship.
+
+And here's the thing to notice: bug-echo would have handed me a 28-row list too. Same
+length, but every row would have been a false positive, because using that button in a
+toolbar isn't a bug by itself. I'd have had to do the walk anyway, after paying for a
+report first. When *every* match is a false positive, that's usually not a sign your
+pattern needs tightening. It's a sign the bug isn't pattern-shaped and you've picked the
+wrong instrument.
+
+**How to tell before you run anything:** ask whether you could spot the bug reading one
+file top to bottom. If yes, bug-echo is the right call. If you'd need a second file open
+to know whether the first one is wrong, do the walk instead.
+
+If you're in SwiftUI, I eventually folded this walk into a separate skill,
+[ui-path-radar](https://github.com/Terryc21/radar-suite), since I kept doing it by hand.
+It's Swift-only.
+
 ## Advanced: the post-fix sweep (three skills together)
 
 For high-stakes fixes (P0 incidents, security-adjacent bugs, fixes to widely-shared code), bug-echo composes with two other skills:

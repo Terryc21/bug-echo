@@ -380,13 +380,11 @@ If you add scale handling, gate it and add it to this list. A change that makes 
 
 ## Acknowledgements
 
-**u/Unable_Strategy5135** (r/claudeskills, August 2026) worked out the precondition walk described above, and most of the design is theirs. They came at it from the opposite direction, measuring wasted work rather than hunting bugs, and it turned out to be the same problem: the 241st read of a file is byte-identical to the 1st, so nothing in the event tells you which one was waste. Only what came before it does.
+**u/Unable_Strategy5135** (r/claudeskills, August 2026) came up with the precondition walk described above. Most of that design is theirs.
 
-That gave the sentence this part of the skill is built on: **a fix is self-describing when the defect was in the line; it isn't when the defect was in what the line assumed.**
+They got to it from a different angle, counting wasted work instead of hunting bugs. Their example: the 241st time a file gets read it's identical to the 1st, so there's nothing in the event itself to tell you which one was waste. Only what happened before it. Same shape as a bug that isn't in the line but in what the line assumed, which is the sentence the whole step got built around.
 
-The first version of this feature read the whole enclosing function. They pointed out that shape is the noisy signal and proposed the narrower cut, take the lines the fix actually read from, along with the one-step walk, the pass-through exception, and the cap. They also argued for the part that costs the most output and matters the most: a check that reports how precise it actually was beats one that implies precision it doesn't have. Honest and rough beats precise and fake.
-
-And they said where to stop. Chasing a chain of definitions is a different problem from finding siblings of a fix, so the cap is a border rather than an unfinished feature.
+My first go at it read the entire function around the fix. They said that was mostly noise and suggested grabbing only the lines the fix actually read from, plus the one-step walk, the pass-through exception, and the cap. They also pushed hard for the part that costs the most and matters the most: a check that tells you how rough it was beats one that pretends it wasn't.
 
 ## Author
 

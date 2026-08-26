@@ -3,6 +3,43 @@
 All notable changes to bug-echo. Version numbers match the `metadata.version` field in
 `skills/bug-echo/SKILL.md` and the `version` field in `.claude-plugin/plugin.json`.
 
+## v1.6.0 (2026-08-26)
+
+Pattern inference can now carry a precondition that lives outside the changed lines.
+
+- **Step 2.1: the removed lines are not always self-sufficient.** Inference read the removed
+  (`-`) lines only. Context entered at classification via the 20-line window, but never at
+  construction — so when the fixed line looked ordinary on its own and what made it a bug lived
+  in the enclosing scope (a guard two lines up, a state the function set), the inferred pattern
+  could not carry that precondition. Sibling sites were never returned as candidates and **the
+  run reported clean**. A false all-clear is the worst failure shape here: the user concludes
+  zero siblings exist. The two patterns are applied at different stages on purpose — the primary
+  finds candidates during scan, the precondition is checked against each candidate's enclosing
+  scope at Step 4. Folding them into one regex would only match where both appear on the same
+  line, which is precisely what this case is not.
+  Raised by a user on the 08/24 r/claudeskills thread.
+- **The precondition walk is bounded, not a whole-function read.** The first version resolved
+  the precondition by reading the entire enclosing function — the noisy version, since most of a
+  function has nothing to do with the fixed line. Replaced with a backward walk: take the values
+  the removed line reads, step back to where each was last set or checked, cap at three.
+  Cheapness is a requirement, not a nice-to-have; a deeper trace too expensive to run everywhere
+  protects nothing.
+- **The pass-through rule ships labeled as unverified.** The one-step-plus-pass-through shape
+  came from a domain where the analogous check never walks a chain at all, so it carries the
+  least evidence of anything here, and nothing in the skill said so. The three-outcome fallback
+  already guards walks that know they failed — but a walk that stops at an unrecognized wire
+  returns a confident, precise-looking precondition built on nothing. That is the one branch
+  that can be wrong while looking right. Runs using this step are now asked to report their
+  outcome mix in one line.
+
+⚠️ **This release is the first time Step 2.1 actually runs.** The seven commits behind this bump
+shipped under an unchanged version number, so the installed plugin never refreshed — the code was
+in the repo and absent from every sweep. The outcome-mix measurement requested above starts here,
+not at the commit that asked for it.
+
+Also: the viewbuilder-crash example now leads with its rating tables; README documents what to do
+when a bug lives between two files, and credits the precondition-walk design.
+
 ## v1.5.1 (2026-08-23)
 
 First real fixture run. **PASS, 6/6 exact, 0 failures** — and CANON is no longer unverified.

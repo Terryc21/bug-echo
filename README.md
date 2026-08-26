@@ -198,6 +198,14 @@ After committing, I ran `/bug-echo`. Here's what the skill did:
 
 **From a diff:** the skill parses unified diff format, extracts the removed (`-`) lines, identifies a distinctive substring shared across the bug instances, and builds a regex narrow enough to avoid false positives but broad enough to catch reasonable syntactic variation. It deliberately avoids matching on whitespace or trailing punctuation. If your diff includes unrelated cleanup (renames, formatting, comment additions), the inferred pattern will be too narrow; switch to describe mode in that case.
 
+**When the fixed line looks ordinary:** some bugs aren't in the line, they're in what the line assumed. The removed code reads as unremarkable, and what made it a bug was a guard two lines up, or a state the function had already set. Building a pattern from that line alone produces a regex that can't express the bug, and the run comes back clean on a codebase that may hold plenty of siblings.
+
+So before building a pattern the skill asks whether the removed lines are self-sufficient: reading them alone, can you tell this is a bug? Usually yes, and nothing else happens. When the answer is no, it takes the values the removed line reads, walks back to where each was last set or checked, and discards the rest of the function. One step, because that first site is where the assumption lives. A second step only if the first is a pass-through (`x = y`, nothing transformed or checked), which is a wire and not an answer. Capped at three.
+
+That gives a second pattern, the **precondition**, which is checked against each candidate's surrounding code during classification. The primary pattern finds candidates; the precondition decides which of them are real. They're never combined into one regex, since that would only match where both appear on the same line, which is exactly what this case is not.
+
+The walk says how well it did. It either found where the value came from, or it fell back to the whole function and says the result is approximate, or it can't name anything and tells you to describe the pattern yourself rather than handing back a clean run it didn't earn. An approximate precondition produces a REVIEW row, not a BUG row.
+
 **Self-validation:** before scanning, the skill compares the inferred pattern against the pre-fix file. If the pattern doesn't match anything there, it stops and reports the failure. There's no scanning with a bad pattern.
 
 **Classification:** each match is read in at least a 20-line window so the skill can see the surrounding context. A `try?` inside test code is OK; the same `try?` inside production code is BUG. A force-unwrap on an IBOutlet is OK; the same on a network response is BUG. The skill doesn't batch-judge.
@@ -369,6 +377,16 @@ If you add scale handling, gate it and add it to this list. A change that makes 
 - [**prompter**](https://github.com/Terryc21/prompter) — prompt rewriting before execution
 - [**skill-reviewer**](https://github.com/Terryc21/skill-reviewer) — candid reviews of other Claude Code skills
 - [**tutorial-creator**](https://github.com/Terryc21/tutorial-creator) — annotated tutorials from your codebase
+
+## Acknowledgements
+
+**u/Unable_Strategy5135** (r/claudeskills, August 2026) worked out the precondition walk described above, and most of the design is theirs. They came at it from the opposite direction, measuring wasted work rather than hunting bugs, and it turned out to be the same problem: the 241st read of a file is byte-identical to the 1st, so nothing in the event tells you which one was waste. Only what came before it does.
+
+That gave the sentence this part of the skill is built on: **a fix is self-describing when the defect was in the line; it isn't when the defect was in what the line assumed.**
+
+The first version of this feature read the whole enclosing function. They pointed out that shape is the noisy signal and proposed the narrower cut, take the lines the fix actually read from, along with the one-step walk, the pass-through exception, and the cap. They also argued for the part that costs the most output and matters the most: a check that reports how precise it actually was beats one that implies precision it doesn't have. Honest and rough beats precise and fake.
+
+And they said where to stop. Chasing a chain of definitions is a different problem from finding siblings of a fix, so the cap is a border rather than an unfinished feature.
 
 ## Author
 

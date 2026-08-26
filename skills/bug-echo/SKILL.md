@@ -143,7 +143,15 @@ This is bug-echo's distinctive mode. Execute these steps directly using Bash and
    - **Yes, self-sufficient.** `try? context.fetch(...)` swallowing an error is wrong on sight. Continue to step 3 unchanged. This is the common case.
    - **No, the removed lines look ordinary.** The line reads as unremarkable code, and what made it a bug is somewhere else in the enclosing scope: a guard two lines up, a state the function sets before reaching it, a lock not held, an early return that should have fired. The bug is the *combination*, and the changed line is only half of it.
 
-   **If not self-sufficient**, read the enclosing scope from the pre-fix file (the function or method containing the change; use the whole type only if the function boundary is unclear) and identify the **precondition**: the thing that had to also be true for this line to be a bug.
+   **If not self-sufficient**, do not read the whole enclosing scope. Most of a function has nothing to do with the line you fixed, and grabbing all of it is how this step turns into noise. Use the function as the *area to search*, then narrow it by what the line actually depended on:
+
+   1. **Take the values the removed line reads** (identifiers it consumes, not ones it assigns). Prefer ast-grep for this when `which ast-grep` resolves; fall back to reading the line and naming them.
+   2. **Walk backwards one step** through the pre-fix file to where each value was last set or checked. That first site is where the assumption the line was making actually lives, and it is the answer in nearly every case.
+   3. **Take one more step only for a pass-through.** If that first site is `x = y` with nothing transformed and nothing checked, you found a wire, not the answer. Step back once more.
+   4. **Cap the walk at three steps.** On hitting the cap, stop and use the fallback below.
+   5. **Discard the rest of the function.** What survives steps 1 to 4 is the **precondition**: the thing that had to also be true for this line to be a bug.
+
+   Keep this cheap enough to run on every match. A deeper trace that is too expensive to run everywhere protects nothing.
 
    Then build **two** patterns, not one:
    - the **primary pattern**, from the removed lines, exactly as in step 3;
@@ -153,9 +161,17 @@ This is bug-echo's distinctive mode. Execute these steps directly using Bash and
 
    🛑 **Do not fold the precondition into the primary pattern.** A conjoined regex only matches where both appear on the same line, which is exactly what the precondition case is not, and it would silently drop the siblings you are trying to find. Two patterns, applied at different stages.
 
-   ⚠️ **If you cannot name the precondition, say so and switch to Step 2A described mode.** Do not proceed with the primary pattern alone and report a clean run. A zero-match result from a pattern that was never able to express the bug is a false all-clear, and it is worse than admitting the inference failed. Tell the user plainly: "The fixed line looks ordinary on its own and I can't tell what made it a bug from the diff. Describe the pattern and I'll scan for it."
+   ⚠️ **Always label how precise the walk actually was.** This is the load-bearing part of the step; keep it even if everything else here changes. A check that reports its own precision is worth more than one that implies precision it does not have. Three outcomes, and each is said out loud:
 
-   *Why this step exists: pattern inference reads the removed lines only. Context is used at classification (a 20-line window) but never at construction, so a precondition living outside the diff never reaches the search. The result is a confident zero-match run on a codebase that may hold many siblings. Raised 2026-08-25 by a user on r/claudeskills who reported better results feeding their own checker the enclosing function rather than just the changed lines.*
+   - **Resolved.** The walk found where the value was established. Report the precondition and the line it came from.
+   - **Unresolved, function fallback.** The values came in as parameters, live on the instance, or the walk hit the three-step cap. Fall back to the enclosing function, and **say that the walk did not finish and the precondition is approximate**. Do not present this as precise.
+   - **Nothing nameable.** You cannot say what made the line a bug. Switch to Step 2A described mode. Do not proceed with the primary pattern alone and report a clean run: a zero-match result from a pattern that was never able to express the bug is a false all-clear, worse than admitting the inference failed. Tell the user plainly: "The fixed line looks ordinary on its own and I can't tell what made it a bug from the diff. Describe the pattern and I'll scan for it."
+
+   *Why this step exists: pattern inference reads the removed lines only. Context is used at classification (a 20-line window) but never at construction, so a precondition living outside the diff never reaches the search. The result is a confident zero-match run on a codebase that may hold many siblings.*
+
+   *Origin: raised 2026-08-25 on the r/claudeskills thread by a user who had solved the analogous problem for wasted work rather than bugs. Their framing, which is the definition this step is built on: **a fix is self-describing when the defect was in the line; it is not when the defect was in what the line assumed.** Their clearest case was duplicate file reads, where the 241st read is byte-identical to the 1st and only the prior history makes one of them waste, so their check reads backwards from the match rather than keying on its shape. The first draft of this step read the whole enclosing function; they pointed out that shape is the noisy signal and proposed the narrower "grab the lines the fix actually read from," then supplied the one-step-plus-pass-through rule and the cap. The labeled fallback is theirs too: honest and rough beats precise and fake.*
+
+   *Known boundary: this deliberately does not chase transitive chains. A chain deep enough to need real data-flow analysis is the border between "sibling bug after a fix" and a different problem, and stopping there is correct rather than a shortfall.*
 
 3. **Construct a search pattern from the removed lines.**
    - Identify the smallest distinctive substring of the removed code that captures the anti-pattern. Avoid matching on comments, formatting, or unrelated changes.
@@ -327,7 +343,7 @@ For each match, regardless of how it was found:
 
 1. **Read the file** at the match location (Read tool), at minimum 20 lines around the match. Multi-platform code may need a wider window to capture surrounding `#if` blocks.
 
-1.5. **Check the precondition pattern, if step 2.1 produced one.** When the inference ran with a precondition (removed lines were not self-sufficient), read the candidate's enclosing scope and test the precondition pattern against it. If the precondition is absent, classify **OK** and state which precondition was missing. Only candidates carrying BOTH the primary and the precondition remain eligible for BUG.
+1.5. **Check the precondition pattern, if step 2.1 produced one.** When the inference ran with a precondition (removed lines were not self-sufficient), read the candidate's enclosing scope and test the precondition pattern against it. If the precondition is absent, classify **OK** and state which precondition was missing. Only candidates carrying BOTH the primary and the precondition remain eligible for BUG. **Carry step 2.1's precision label into the finding:** when the precondition came from the function fallback rather than a resolved walk, say so on the row, and prefer REVIEW over BUG. An approximate precondition supports "worth a look," not "this is broken."
 
 2. **Check for known intentional usages.**
    - This is in-context judgment by Claude. Common intentional uses (e.g., `try?` in test code where failure is acceptable, force-unwrap of an IBOutlet) are classified as OK. There is no suppression file to consult — every run re-judges from the source, so a usage that was intentional last month still has to read as intentional today.

@@ -4,7 +4,7 @@ description: 'After fixing a bug, find and rate other instances of the same patt
 license: Apache-2.0
 allowed-tools: [Grep, Glob, Read, Write, Edit, Bash, AskUserQuestion, Agent]
 metadata:
-  version: 1.6.0
+  version: 1.7.0
   author: Terry Nyberg, Coffee & Code LLC
   tier: execution
   category: debugging
@@ -38,6 +38,15 @@ bug-echo also runs standalone when you describe the pattern manually (Step 2A be
 This is a workflow to run, not a procedure to summarize. The user invoked it because they want the scan performed and the findings in hand; a description of what bug-echo would do leaves them exactly where they started.
 
 **Rate every BUG finding on all six dimensions** — Urgency, Risk of Fixing, Risk of Not Fixing, ROI, Blast Radius, and Fix Effort — using the Issue Rating Table in Step 5. The six exist because "here are 14 bugs" is not actionable: the user has to decide what to fix before the next release and what to leave. A finding missing Risk of Not Fixing or Blast Radius can't be triaged against the others, so it silently drops out of that decision no matter how real the bug is.
+
+**Narrate the user experience for every BUG and WATCH finding** — what a person hits while the bug is live, and what they get instead once it is fixed. This is required in all three report modes (`inline`, `full`, and any promoted finding), in plain user-facing language: what they see, tap, and feel, not the mechanism. The six ratings say how bad a finding is on technical axes; none of them says what it costs the person using the app, which is the axis the fix-or-defer call is actually made on.
+
+Sibling findings make this especially easy to get wrong, because their user cost is often **not** the same as the original fix's. The same anti-pattern in a rarely-reached settings pane and in the primary add-item flow are one pattern and two very different experiences. Narrate each site's own cost rather than restating the original's.
+
+Two rules keep it honest:
+
+- 🛑 **Findings with no visible symptom still get the field.** Say so explicitly and name what the user is protected from — a crash that never happens, data that is not silently lost. Invisible wins are the ones most often dropped and frequently the most valuable. "No visible change; prevents X" is a complete answer.
+- 🛑 **Never invent a symptom to fill the field.** If you cannot say what the user would experience, that is evidence the finding may be theoretical — reclassify it to REVIEW or say plainly that the impact is unclear. An invented symptom inflates apparent severity and corrupts the triage the ratings exist to support.
 
 This skill uses Claude's native tools only. No external scripts or pattern catalogs. AST-grep is optional; if it is installed, prefer it for higher precision on Swift, otherwise fall back to regex via the Grep tool.
 
@@ -397,6 +406,7 @@ Render in conversation, not to a file. Single Issue Rating Table with one row pe
 
 **Detail:**
 - **[N]. [short description]** at `path/file.swift:[line]`. [Why this is a bug, 1-2 sentences.] Suggested fix: [1-2 sentences.]
+  **User experience** — Before: [what the user hits while it is live]. After: [what they get once fixed].
 
 **Recon classifications:** [N] BUG, [N] OK (cite line numbers if relevant), [N] REVIEW.
 ```
@@ -458,6 +468,9 @@ For each BUG finding:
 
 **Why this is a bug:** [1-2 sentences]
 **Suggested fix:** [1-2 sentences. If a CANON site exists, cite it — "mirror `path/File.swift:311`" — rather than describing a fix from scratch.]
+**User experience:**
+- **Before:** [what the user sees, taps, and feels while the bug is live]
+- **After:** [what they see instead once it is fixed]
 ```
 
 If the sweep produced any `OK (CANON)` sites, name them once directly beneath the BUG table so the reader sees the reference before the individual findings:
@@ -487,6 +500,7 @@ For each WATCH finding:
 
 **Why this is WATCH not BUG:** [1-2 sentences explaining the architectural defense or near-threshold status]
 **Suggested fix (defensive, not urgent):** [1-2 sentences, typically a comment or refactor recommendation]
+**User experience if it crosses the threshold:** [what the user would hit — the cost being pre-empted]
 ```
 
 ## OK Findings (intentional, no action needed)

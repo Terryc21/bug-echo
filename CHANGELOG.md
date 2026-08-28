@@ -3,6 +3,28 @@
 All notable changes to bug-echo. Version numbers match the `metadata.version` field in
 `skills/bug-echo/SKILL.md` and the `version` field in `.claude-plugin/plugin.json`.
 
+## v1.7.0 (2026-08-28)
+
+Every BUG and WATCH finding now narrates the user experience, not just the mechanism.
+
+- **The six ratings measure the wrong axis on their own.** Urgency, Risk, ROI, Blast Radius and
+  Fix Effort say how bad a finding is technically. None of them says what it costs the person
+  using the app, which is the axis the fix-or-defer call is actually made on. A report that reads
+  like a compiler diff makes that call harder rather than easier. Findings now carry a
+  **Before / After** pair in plain user-facing language — what the user sees, taps and feels —
+  in all three report modes (`inline`, `full`, and WATCH), so the field cannot be skipped by
+  taking the lightweight path.
+- **Sibling findings get their own cost, not the original's.** The same anti-pattern in a rarely
+  reached settings pane and in the primary add-item flow is one pattern and two very different
+  experiences. Restating the original fix's impact across every echo is the failure mode this
+  guards against.
+- **Two honesty rules.** A finding with no visible symptom still gets the field, stating what the
+  user is protected from — invisible wins (a crash that never happens, data not silently lost)
+  are dropped most often and are frequently the most valuable. And a symptom is never invented to
+  fill the field: being unable to name one is evidence the finding may be theoretical, so it is
+  reclassified to REVIEW instead. An invented symptom inflates apparent severity and corrupts the
+  triage the ratings exist to support.
+
 ## v1.6.0 (2026-08-26)
 
 Pattern inference can now carry a precondition that lives outside the changed lines.

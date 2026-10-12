@@ -19,7 +19,7 @@ USAGE:
 
 The report file is whatever bug-echo produced: a saved .agents/research/ report
 or an inline report pasted into a file. Parsing is deliberately forgiving --
-it looks for `path/to/File.swift:NN` citations and the nearest verdict word,
+it reads verdicts from Markdown table rows, labeled bullets, and finding sections,
 because the report format is prose for humans, not a machine format (SKILL.md
 Step 5 says so explicitly, and says not to emit a JSON sidecar).
 
@@ -48,42 +48,52 @@ def normalize(verdict):
     return "CANON" if "CANON" in v else v
 
 
-def find_verdict_near(text, idx, window=400):
-    """
-    Find the verdict word closest to a citation.
-
-    Looks backward first: in both report formats the classification heading or
-    table cell precedes the file:line citation. Falls back to a forward look.
-
-    ⚠️ The `**Reference implementation:**` line is checked FIRST and wins. It is
-    how SKILL.md Step 5 renders a CANON site, and it usually sits directly under
-    a "## BUG Findings" heading -- so a naive backward scan reads the heading and
-    scores the reference implementation as a BUG. Caught by the harness's own
-    positive control on the first run.
-    """
-    line_start = text.rfind("\n", 0, idx) + 1
-    line_end = text.find("\n", idx)
-    line = text[line_start:line_end if line_end != -1 else len(text)]
-    if re.search(r"reference\s+implementation", line, re.I):
-        return "CANON"
-
-    before = text[max(0, idx - window):idx]
-    for m in reversed(list(re.finditer(r"\b(OK\s*\(CANON\)|CANON|BUG|WATCH|OK|REVIEW)\b", before))):
-        return normalize(m.group(1))
-    after = text[idx:idx + window]
-    m = re.search(r"\b(OK\s*\(CANON\)|CANON|BUG|WATCH|OK|REVIEW)\b", after)
-    return normalize(m.group(1)) if m else None
-
-
 def parse_report(text):
     """Return {(basename, line): verdict} for every file:line citation found."""
     found = {}
-    for m in re.finditer(r"([\w/\.\-]+\.swift):(\d+)", text):
-        basename = os.path.basename(m.group(1))
-        line = int(m.group(2))
-        verdict = find_verdict_near(text, m.start())
+    priorities = {}
+    section = None
+    fenced = False
+    verdict_re = r"(OK\s*\(CANON(?:,[^)]*)?\)|CANON|BUG|WATCH|OK|REVIEW)(?=\W|$)"
+    citation_re = r"([\w/\.\-]+\.(?:swift|tsx?|jsx?)):(\d+)"
+    for raw in text.splitlines():
+        if raw.lstrip().startswith(('```', '~~~')):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        plain = raw.replace('**', '').replace('`', '').strip()
+        heading = re.match(r'^#{1,6}\s+(.+)', plain)
+        if heading:
+            title = heading.group(1)
+            tag = re.match(verdict_re, title, re.I)
+            section = normalize(tag.group(1)) if tag else None
+            if re.match(r'reference implementation', title, re.I):
+                section = 'CANON'
+        matches = list(re.finditer(citation_re, plain))
+        if not matches:
+            continue
+        # Validation/baseline citations are evidence about old code, not findings.
+        if re.search(r'HEAD(?:[~^:]|\b)|git show|pre-fix|validation:', plain, re.I):
+            continue
+        verdict, priority = section, 1
+        cells = [cell.strip() for cell in plain.strip('|').split('|')]
+        table_tag = next((re.match(verdict_re, cell, re.I) for cell in cells
+                          if re.match(verdict_re, cell, re.I)), None) if '|' in plain else None
+        direct = re.match(r'^[-*]?\s*' + verdict_re, plain, re.I)
+        after = re.match(r'^[\s:–—\-\d]*' + verdict_re, plain[matches[0].end():], re.I)
+        tag = table_tag or direct or after
+        if tag:
+            verdict, priority = normalize(tag.group(1)), 3
+        elif re.search(r'reference implementation', plain, re.I):
+            verdict, priority = 'CANON', 2
+        elif re.search(r'suggested fix|mirror |see |baseline', plain, re.I):
+            continue
         if verdict:
-            found.setdefault((basename, line), verdict)
+            for match in matches:
+                key = (os.path.basename(match.group(1)), int(match.group(2)))
+                if priority > priorities.get(key, 0):
+                    found[key], priorities[key] = verdict, priority
     return found
 
 
@@ -103,6 +113,7 @@ def main():
         actual = parse_report(f.read())
 
     strict = {tuple(p) for p in key["tolerance"]["strict_pairs"]}
+    lenient = {tuple(p) for p in key["tolerance"].get("lenient_pairs", [])}
 
     failures, notes, passes = [], [], []
 
@@ -142,9 +153,17 @@ def main():
                 failures.append(f"✘ {base}:{site['line']}  MISSING from report (expected {want})")
             continue
 
-        if got in accepted:
+        alternate = any(
+            verdict == "CANON" and base_name == os.path.basename(ref["file"])
+            and abs(line_num - ref["line"]) <= ref.get("line_tolerance", 3)
+            for ref in site.get("alternate_canon", [])
+            for (base_name, line_num), verdict in actual.items()
+        )
+        if want == "CANON" and got == "OK" and alternate:
+            passes.append(f"✔ {base}:{site['line']}  OK (another valid CANON selected)")
+        elif got in accepted:
             passes.append(f"✔ {base}:{site['line']}  {got}")
-        elif (want, got) in strict:
+        elif (want, got) in strict or (want, got) not in lenient:
             failures.append(f"✘ {base}:{site['line']}  got {got}, expected {want}  [strict]")
         else:
             notes.append(f"○ {base}:{site['line']}  got {got}, expected {want}  [lenient -- judgment call]")
@@ -156,7 +175,7 @@ def main():
             hits = [(b, l) for (b, l) in hits if l == banned["line"]]
         for b, l in hits:
             v = actual[(b, l)]
-            if v in ("BUG", "WATCH", "CANON"):
+            if v in banned.get("forbidden_verdicts", ("BUG", "WATCH", "CANON")):
                 failures.append(f"✘ {b}:{l}  flagged {v} but must not be flagged -- {banned['because'][:70]}")
 
     print(f"\nbug-echo fixture: {key['fixture']}  ({key['language']})")
@@ -165,7 +184,7 @@ def main():
         print("  " + line)
 
     total = len(key["sites"])
-    print(f"\n  {len(passes)}/{total} exact · {len(notes)} note(s) · {len(failures)} failure(s)")
+    print(f"\n  {len(passes)}/{total} accepted · {len(notes)} note(s) · {len(failures)} failure(s)")
     print(f"\n  Scope: classification verified on {key['language'].upper()} only "
           f"({total} sites, 1 fixture). NOT verified on any other language.")
 

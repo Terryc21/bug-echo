@@ -144,7 +144,8 @@ Text search works fine without it; the report says which was used.
 
 ## Ways to run it
 
-The skill always searches your whole project. The only question is where the pattern comes from.
+The skill searches the project or the scope you name. Examples use `/bug-echo` as shorthand;
+use `$bug-echo` in Codex or the installed Claude command (normally `/bug-echo:bug-echo`).
 
 | Goal | Command |
 |---|---|
@@ -190,7 +191,7 @@ file is fine — the window is too narrow.
 ## Automating it
 
 **Short answer: mostly don't.** The skill needs a real fix to compare against, and judging each
-match uses Claude, which you don't want firing on every commit. The premise also breaks down on
+match uses your coding assistant, which you don't want firing on every commit. The premise also breaks down on
 ordinary feature work, where there's no bug to learn from.
 
 Two things that do work:
@@ -198,7 +199,8 @@ Two things that do work:
 - **A checklist step.** Run `/bug-echo` after each merged bug-fix PR, so siblings get caught before
   they reach a release branch.
 - **A tagged trigger.** A pre-merge hook that fires only when a commit message carries something
-  like `[bug-fix]`, calling Claude Code through the `claude` CLI.
+  like `[bug-fix]`, calling your coding assistant through its CLI. This is an optional workflow you configure,
+  not a hook installed by bug-echo.
 
 ---
 

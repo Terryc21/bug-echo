@@ -1,6 +1,6 @@
 # bug-echo
 
-![Version](https://img.shields.io/github/v/tag/Terryc21/bug-echo?label=version) ![Last commit](https://img.shields.io/github/last-commit/Terryc21/bug-echo) ![Stars](https://img.shields.io/github/stars/Terryc21/bug-echo?style=flat) ![Issues](https://img.shields.io/github/issues/Terryc21/bug-echo) ![License](https://img.shields.io/github/license/Terryc21/bug-echo) ![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet)
+![Version](https://img.shields.io/github/v/tag/Terryc21/bug-echo?label=version) ![Last commit](https://img.shields.io/github/last-commit/Terryc21/bug-echo) ![Stars](https://img.shields.io/github/stars/Terryc21/bug-echo?style=flat) ![Issues](https://img.shields.io/github/issues/Terryc21/bug-echo) ![License](https://img.shields.io/github/license/Terryc21/bug-echo) ![Codex + Claude Code](https://img.shields.io/badge/Codex%20%2B%20Claude%20Code-Skill-blueviolet)
 
 **You just fixed a bug. Is the same mistake somewhere else in your project?**
 
@@ -50,42 +50,77 @@ never get a report built on a misunderstanding.
 
 ---
 
-## Try it
+## Install for Codex or Claude Code
 
-Type these into Claude Code, not Terminal. One at a time.
+Both apps use the same skill in [`skills/bug-echo/`](skills/bug-echo/). No separate
+Codex copy or fork is needed. You need a coding assistant with access to your project;
+Git is needed to infer a pattern from a fix. This is not a custom GPT for browser chat.
 
+### Codex
+
+Ask Codex:
+
+> $skill-installer Install the bug-echo skill from https://github.com/Terryc21/bug-echo/tree/main/skills/bug-echo.
+
+Then, in your project:
+
+```text
+$bug-echo
+$bug-echo "await inside a forEach, so nothing actually waits"
+$bug-echo --version
 ```
+
+If it does not appear, start a fresh Codex session.
+
+### Claude Code
+
+Run these **one at a time inside Claude Code**, not Terminal:
+
+```text
 /plugin marketplace add Terryc21/bug-echo
 ```
 
-```
+```text
 /plugin install bug-echo@bug-echo
 ```
 
-Then fix a bug, commit it, and run:
+Then use the installed command (normally `/bug-echo:bug-echo`; check the `/` menu):
 
+```text
+/bug-echo:bug-echo
+/bug-echo:bug-echo "await inside a forEach, so nothing actually waits"
+/bug-echo:bug-echo --version
 ```
-/bug-echo
-```
 
-About two minutes on a normal project.
+### One local checkout for both apps
 
-<details>
-<summary><strong>Installing by hand</strong></summary>
+For contributors or anyone who wants both apps to read the exact same files, clone
+once and link the **skill subfolder** into both discovery locations:
 
 ```bash
-mkdir -p ~/.claude/skills
-git clone https://github.com/Terryc21/bug-echo.git ~/.claude/skills/bug-echo
+git clone https://github.com/Terryc21/bug-echo.git /path/to/bug-echo
+mkdir -p ~/.agents/skills ~/.claude/skills
+ln -s /path/to/bug-echo/skills/bug-echo ~/.agents/skills/bug-echo
+ln -s /path/to/bug-echo/skills/bug-echo ~/.claude/skills/bug-echo
 ```
 
-Then use `/skill bug-echo` (with the prefix).
-</details>
+Replace `/path/to/bug-echo` with your checkout's absolute path. If either destination
+already exists, preserve it before replacing it; do not overwrite an existing skill
+blindly. For Claude Code, choose this manual install **or** the plugin, so two copies
+do not compete. A manual Claude install uses `/bug-echo`.
 
-**No recent fix?** Describe the bug instead and it searches for that:
+Update a linked checkout with `git -C /path/to/bug-echo pull --ff-only`; both apps then
+read that checkout. For a Codex copy installed by the installer, update or reinstall
+it from the same repository subfolder. For a Claude plugin install, update its
+marketplace and plugin. Start fresh sessions and ask `--version` to confirm the
+version **and loaded path**. A copied installation does not track GitHub automatically.
 
-```
-/bug-echo "await inside a forEach, so nothing actually waits"
-```
+The examples below use `/bug-echo` as shorthand. In Codex, substitute `$bug-echo`;
+for a Claude plugin, use its listed command. You can also ask in plain words.
+
+After a bug fix, run the skill to look for siblings. A committed fix is convenient,
+but staged or unstaged fixes also work; name the source when several changes are present.
+No recent fix? Describe the pattern instead.
 
 ---
 
@@ -204,9 +239,12 @@ Many people run both — prospector before releases, echo after every fix.
 
 ## Where it stands
 
-**v1.6.0.** Used through real App Store release cycles on [Stuffolio](https://stuffolio.app), the
+**v1.8.0.** Used through real App Store release cycles on [Stuffolio](https://stuffolio.app), the
 app it was built for. Works in any language for finding the pattern; a few conveniences are
 Apple-specific.
+
+**Validation:** Three representative scans passed in each app: committed Swift, unstaged Swift,
+and a described TypeScript pattern. [Results, tested versions, and limits](fixtures/validation-2026-10-12.md).
 
 **[Full version history →](CHANGELOG.md)**
 
@@ -228,8 +266,8 @@ extra steps in front of a small project's scan, it won't be accepted.
 
 ---
 
-**New to Claude Code?** A *skill* is a set of written instructions Claude Code knows how to
-follow. Install it once, type `/bug-echo`, and it does the work. Two words worth knowing: a
+**New to skills?** A *skill* is a set of instructions your coding assistant follows.
+Install it once, invoke bug-echo in your app, and it performs the scan. Two words worth knowing: a
 **diff** is the before-and-after of a change you made, which is what bug-echo reads; a **sibling**
 is another place in your project with the same mistake.
 

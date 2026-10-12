@@ -29,9 +29,46 @@ cd /tmp/bug-echo-fixture-swift-try-fetch
 python3 <repo>/fixtures/score.py report.md swift-try-fetch
 ```
 
-`setup.sh` creates the scratch repo **outside** this one, so a fixture run can never dirty
-bug-echo's own tree — which matters, because bug-echo's Pre-flight step refuses to scan a dirty
-repo. It also refuses to delete a destination that isn't marked as its own scratch dir.
+`setup.sh` creates the scratch repo **outside** this one, so a fixture run never dirties
+bug-echo's own tree. It refuses to delete a destination that isn't marked as its own scratch dir.
+Read-only bug-echo scans can run on dirty trees; the selected diff determines the baseline.
+
+## Codex and Claude Code checks
+
+[The 1.8.0 validation record](validation-2026-10-12.md) documents the live results and limits.
+
+With both CLIs installed and signed in, run:
+
+```bash
+python3 fixtures/cross_runtime.py --output /absolute/path/to/new-results-directory
+```
+
+This runs three report-only scans in each app, using the same candidate skill:
+
+- Swift: infer from a committed fix, identify sibling bugs, and distinguish intentional uses.
+- Swift: infer from an explicitly selected unstaged fix against the index while preserving
+  unrelated staged and unstaged changes.
+- TypeScript: scan a described `await forEach(async ...)` pattern and distinguish intentional
+  background work.
+
+The harness creates isolated Git repositories, keeps answer keys outside the scan projects,
+captures prompts/transcripts/reports, scores verdicts, and checks source, HEAD, and index
+preservation. It records the tested skill hashes and CLI versions. It uses existing CLI
+sign-ins and their default models; live runs consume the corresponding account's usage.
+No full-permission bypass is used. Results must be saved outside this repository.
+
+Use `--runtimes codex` or `--runtimes claude` for one app, or
+`--cases committed unstaged described` to select scenarios. The output directory must be new.
+Review the transcripts as well as the score: check that the intended skill version loaded,
+that inference used the requested baseline, and that no answer key was read.
+
+Check the scorer itself with `python3 -m unittest discover -s fixtures -p test_score.py`.
+Controls cover Markdown tables, baseline citations, correct references, missing bugs,
+false positives, and wrongly treating a fixed seed as a bug. A fixed seed may be cited
+as an `OK (CANON)` reference; that is not an unresolved echo.
+
+These are small, static code-analysis fixtures. They do not establish correctness on every
+language or project, exercise the >500-file branch, or test guided source edits and commits.
 
 ## Why the fake git history
 
@@ -129,7 +166,7 @@ were found only by running it, which is the argument for running it.
 
 1. `fixtures/<name>/src/` — the fake project. Include at least one deliberate BUG, one genuine
    OK that matches the pattern textually, and a decoy that a too-broad pattern would catch.
-2. `fixtures/<name>/answer-key.json` — verdicts with a `because` citing the SKILL.md rule each
+2. `fixtures/<name>/answer-key.json` — verdicts with a `because` citing the WORKFLOW.md rule each
    depends on, so a rules change can be grepped back to the expectations it affects.
 3. `bash fixtures/setup.sh <name>` — the script needs a seed file it knows how to fix; adjust
    the heredoc if your fixture's seed differs.

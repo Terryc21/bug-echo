@@ -22,8 +22,7 @@
 #   bash fixtures/setup.sh swift-try-fetch /tmp/be-fix
 #
 # The destination is created fresh each run. It is NOT inside this repo, so a
-# fixture run can never dirty bug-echo's own working tree — which matters
-# because bug-echo's Pre-flight step refuses to scan a dirty repo.
+# fixture run can never dirty bug-echo's own working tree.
 #
 set -euo pipefail
 

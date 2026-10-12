@@ -1,7 +1,7 @@
 import Foundation
 
-/// FIXTURE FILE — supporting types so the fixture reads as a coherent project.
-/// Nothing here is a scan target.
+
+
 
 enum FetchError: Error {
     case storeUnavailable(underlying: Error)
@@ -27,10 +27,10 @@ struct DataContext {
     }
 }
 
-/// EXPECT: OK — `try?` on a DIFFERENT operation (file read, not a store
-/// fetch). Present so an over-broad pattern (bare `try?` rather than
-/// `try? ...fetch`) is visibly wrong: a scan that flags this line has
-/// generalized past the seeded fix.
+/// Read an optional cached thumbnail; a missing cache file is expected.
+
+
+
 enum ThumbnailLoader {
     static func cachedThumbnail(at url: URL) -> Data? {
         try? Data(contentsOf: url)

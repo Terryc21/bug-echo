@@ -1,7 +1,23 @@
 # Changelog
 
 All notable changes to bug-echo. Version numbers match the `metadata.version` field in
-`skills/bug-echo/SKILL.md` and the `version` field in `.claude-plugin/plugin.json`.
+`skills/bug-echo/SKILL.md` and both Claude plugin manifests.
+
+## v1.8.0 (2026-10-12)
+
+- Consolidate the Claude instructions and local Codex adaptation into one shared skill.
+  `SKILL.md` provides discovery and runtime guidance; `WORKFLOW.md` contains the single
+  scan/classification/report procedure. Both apps load the same resources.
+- Add Codex and Claude installation, invocation, update, and shared-checkout instructions.
+  `--version` reports the loaded version and path. Align both plugin manifests at 1.8.0.
+- Preserve the Codex adaptation's actual diff baselines (index for unstaged changes),
+  read-only scans on dirty trees, carried-forward authorization, and scoped commits.
+- Use the current app's available tools and retain sequential batching when delegation
+  is unavailable. Do not copy personal paths or handoff conventions into the public skill.
+- Add a live CLI harness for committed Swift fixes, unstaged fixes with unrelated edits,
+  and described TypeScript patterns. Remove verdict labels from fixture comments; retain
+  the behavioral contracts the code is expected to meet. Repair Markdown verdict parsing
+  and cover it with positive and negative controls.
 
 ## v1.7.0 (2026-08-28)
 

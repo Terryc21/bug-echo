@@ -1,0 +1,15 @@
+{
+  "fixture": "typescript-await",
+  "language": "typescript",
+  "pattern": "awaiting forEach with an async callback does not await its asynchronous work",
+  "tolerance": {
+    "strict_pairs": [["BUG", "OK"], ["OK", "BUG"], ["BUG", "CANON"], ["CANON", "BUG"], ["OK", "CANON"], ["CANON", "OK"]]
+  },
+  "sites": [
+    {"file": "src/SaveJobs.ts", "line": 7, "expect": "BUG", "because": "The success UI runs before save promises settle; forEach returns void."},
+    {"file": "src/Correct.ts", "line": 6, "expect": "CANON", "optional": true, "because": "Promise.all awaits every save before success is shown; a narrow search need not find this reference."}
+  ],
+  "must_not_flag": [
+    {"file": "src/Background.ts", "because": "Telemetry explicitly runs in the background and handles its failures; no caller expects it to wait."}
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "bug-echo"
+  short_description: "Find sibling bugs after a fix and rate each match"
+  default_prompt: "Use $bug-echo to find other instances of the bug I just fixed."

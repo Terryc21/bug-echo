@@ -279,3 +279,7 @@ about how it went on a non-Swift project is worth more.
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/stuffolio)
 
 Apache 2.0 — see [LICENSE](LICENSE).
+
+## Privacy
+
+bug-echo collects no data of its own. It has no server, no accounts, no telemetry and no analytics, and it sends nothing to its author. It reads source files in the project you point it at. When it saves a report, it writes it under `.agents/research/` in that project. It makes no network requests of its own. Anything it saves stays on your own machine. What you ask it to read is processed by Claude in your own session, under your own Anthropic terms and settings. Anthropic's plugin directory may show the author aggregate install counts; those come from the directory, not from the plugin.
